@@ -1,5 +1,15 @@
 import os
+import torch
 
+#
+
+
+IMG_SIZE = 224
+PATCH_SIZE = 64
+PATCH_STRIDE = int(PATCH_SIZE*0.8)
+
+
+# FOLDERS
 current_directory = os.getcwd()
 train_path = r'data\Flickr8k_text\Flickr_8k.trainImages.txt'
 val_path = r'data\Flickr8k_text\Flickr_8k.devImages.txt'
@@ -22,3 +32,4 @@ DESCR_PATH =  os.path.join(current_directory, r'data\Flickr8k_text\Flickr8k.toke
 DESCR_LEMMA_PATH =  os.path.join(current_directory, r'data\Flickr8k_text\Flickr8k.lemma.token.txt')
 
 img_folder_path='data\Flickr8k_Dataset\Flicker8k_Dataset'
+

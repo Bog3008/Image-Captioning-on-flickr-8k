@@ -122,7 +122,7 @@ class FlickerDS(Dataset):
             transform = transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5],), 
-                            transforms.Resize(self.img_size, antialias=True)
+                            transforms.Resize((self.img_size, self.img_size), antialias=True)
                         ])
         self.transform = transform
 
@@ -151,6 +151,7 @@ def test_dataset():
     print(tokenizer.decode(descr)) #for 1 descr per image
     #print(*list(map(tokenizer.decode, descr)),sep='\n' ) - for 5 descr per image
 
-print('-'*40)
-test_dataset()
+if __name__ == '__main__':
+    print('-'*40)
+    test_dataset()
         
