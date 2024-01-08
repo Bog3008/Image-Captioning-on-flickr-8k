@@ -38,33 +38,40 @@ def get_img2discr(path:str, only_lowwer=True)->dict:
     return img2descr
 
 class MyTokenizer:
-    def __init__(self, img2descr, bos = '<bos>', eos = '<eos>', unk = '<unk>', pad = '<pad>'):
+    def __init__(self, img2descr, max_seq_len = config.MAX_SEQ_LEN, bos = '<bos>', eos = '<eos>', unk = '<unk>', pad = '<pad>'):
         unique_words = []
         for sentences in img2descr.values():
             for sentence in sentences: 
                 unique_words.extend(sentence.split())
-        unique_words = list(set(unique_words))
-        unique_words += [bos, eos, unk, pad]
+        self.unique_words = list(set(unique_words))
+        self.unique_words += [bos, eos, unk, pad]
         self.word2token = {}
         self.token2word = {}
-        for i, word in enumerate(unique_words):
+        for i, word in enumerate(self.unique_words):
             self.word2token[word] = i
             self.token2word[i] = word
+
+        self.max_seq_len = max_seq_len
 
         self.unk_idx = self.word2token[unk]
         self.bos_idx = self.word2token[bos]
         self.eos_idx = self.word2token[eos]
         self.pad_idx = self.word2token[pad]
 
-    
+    def get_unique_words(self):
+        return self.unique_words
     def encode(self, sentence):
         '''encode single sentence'''
         tokenized = []
-        for word in sentence.split():
+        for i, word in enumerate(sentence.split()):
+            if i >= self.max_seq_len:
+                break
             if word in self.word2token.keys():
                 tokenized.append(self.word2token[word])
             else:
                 tokenized.append(self.unk_idx)
+        for i in range(self.max_seq_len - len(tokenized)):
+            tokenized.append(self.pad_idx)
         return torch.tensor([self.bos_idx] + tokenized + [self.eos_idx])
     
     def decode(self, tokens):
@@ -94,7 +101,7 @@ class MyTokenizer:
                     tokenized.append(self.word2token[word])
                 else:
                     tokenized.append(self.unk_idx)
-            for _ in range(max_len-len(sentence)):
+            for _ in range(max_len-len(sentence) ):
                 tokenized.append(self.pad_idx)
             tokenized_sentences.apend([self.bos_idx] + tokenized + [self.eos_idx])
         return torch.tensor(tokenized_sentences)
@@ -110,6 +117,7 @@ def tokenize_img2descr(img2descr, tokenizer):
 
 class FlickerDS(Dataset):
     def __init__(self, img_folder_path, img2descr, img_names, img_size, tokenizer, transform=None):
+        
         self.img_folder_path = img_folder_path
         self.img_names = img_names
 
@@ -131,7 +139,6 @@ class FlickerDS(Dataset):
         return len(self.img_names)
     
     def __getitem__(self, indx):
-
         decription_list = self.img2tok_list[self.img_names[indx]]
         img_full_path =  os.path.join(self.img_folder_path, self.img_names[indx])
         img = self.transform(Image.open(img_full_path).convert("RGB"))
@@ -151,7 +158,16 @@ def test_dataset():
     print(tokenizer.decode(descr)) #for 1 descr per image
     #print(*list(map(tokenizer.decode, descr)),sep='\n' ) - for 5 descr per image
 
+def test_tokenizer():
+    img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
+    tokenizer = MyTokenizer(img2descr_lemma)
+    for word in ['sun shine', '1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 11 12 13']:
+        t_w = tokenizer.encode(word)
+        print(f'source len:{len(word.split())}, enc len:{len(t_w)}')
+        print(f'source :{word.split()}, enc&dec :{tokenizer.decode(t_w)}')
+
 if __name__ == '__main__':
     print('-'*40)
-    test_dataset()
+    #test_dataset()
+    #test_tokenizer()
         

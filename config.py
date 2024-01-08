@@ -8,8 +8,17 @@ IMG_SIZE = 224
 PATCH_SIZE = 64
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
 
+BATCH_SIZE = 2
+NUM_WORKERS = 6
+EMBED_SIZE = 256
+N_HEADS = 4
+N_TRANS_LAYERS = 6
+MAX_SEQ_LEN = 20
+
+DEVICE = 'cpu'#, 'cuda'if torch.cuda.is_available() else 'cpu'
 
 # FOLDERS
+IMG_FOLDER_PATH = 'data\Flickr8k_Dataset\Flicker8k_Dataset'
 current_directory = os.getcwd()
 train_path = r'data\Flickr8k_text\Flickr_8k.trainImages.txt'
 val_path = r'data\Flickr8k_text\Flickr_8k.devImages.txt'

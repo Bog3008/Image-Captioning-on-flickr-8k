@@ -49,7 +49,14 @@ def test_patch_devision():
     #lets take a look
     plot_patches(img_p)
 
+def test_make_patches():
+    #I forgot about the function above
+    img = torch.randn(config.BATCH_SIZE, 3, config.IMG_SIZE, config.IMG_SIZE)
+    ooo = make_patches(img, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
+    print(ooo.shape)
+    print(calc_num_patches())
     
 if __name__ == '__main__':
     print('-'*40)
-    test_patch_devision()
+    #test_patch_devision()
+    test_make_patches()
