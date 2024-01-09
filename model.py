@@ -11,7 +11,7 @@ from utils import make_patches, calc_num_patches
 from dataset import FlickerDS, MyTokenizer, get_img2discr
 
 #
-# I copied PositionalEncoding it from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
+# I copied 'PositionalEncoding' it from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model: int, dropout: float = 0.1, max_len: int = 200):
@@ -33,7 +33,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0)]
         return self.dropout(x)
 
-# get_tgt_mask i copid from here: https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
+# 'get_tgt_mask' i copid from here: https://towardsdatascience.com/a-detailed-guide-to-pytorchs-nn-transformer-module-c80afbc9ffb1
 def get_tgt_mask(size) -> torch.tensor:
         # Generates a squeare matrix where the each row allows one word more to be seen
         mask = torch.tril(torch.ones(size, size) == 1) # Lower triangular matrix
@@ -46,6 +46,7 @@ class PrintM(nn.Module):
     def forward(self, x):
         print(x.shape)
         return x
+    
 class ICTrans(nn.Module):
     def __init__(self, n_patches, embedding_size, num_heads, num_layers, vocab_size, dropout=0.1):
         super().__init__()
@@ -69,10 +70,9 @@ class ICTrans(nn.Module):
             dropout=dropout,
             batch_first=False
         )
-
+        #raise RuntimeError('It must return probs for every character')
         self.lin = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear((config.MAX_SEQ_LEN+2)*embedding_size, vocab_size*2),
+            nn.Linear(embedding_size, vocab_size*2),
             nn.LeakyReLU(0.2),
             nn.Linear(vocab_size*2, vocab_size))
     
