@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from dataset import *
 import math
 import config
+from datetime import datetime
 
 # Define function to split image into patches
 # config.PATCH_SIZE - x and y size of patch; config.PATCH_STRIDE - step in pixels  
@@ -56,6 +57,12 @@ def test_make_patches():
     print(ooo.shape)
     print(calc_num_patches())
     
+#
+def get_time():
+    current_datetime = datetime.now()
+    return current_datetime.strftime('%Y_%m_%d_%Hh%Mm')
+#
+
 if __name__ == '__main__':
     print('-'*40)
     #test_patch_devision()

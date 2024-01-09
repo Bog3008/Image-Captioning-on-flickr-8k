@@ -98,6 +98,8 @@ class ICTrans(nn.Module):
         t_out = self.transformer(src= x, tgt=y, tgt_mask = tgt_mask)
         probs = self.lin(t_out.permute(1, 0, 2)) #permute: (seq_len, bs, emb_size) -> (bs, seq_len, emb_size))
         return probs
+    
+    
 
 def dim_test():
     #x = torch.randn(8, 8, 32, 3, 64, 64)
@@ -138,12 +140,16 @@ def ict_test():
         
         out = model(img_batch, discr_batch)
         print('model out', out.shape)
-        break
-    
-print('#'*50)
-print('#'*50)
-print('#'*50)
-print('#'*50)
 
-#dim_test()
-ict_test()
+        words = tokenizer.probs2words(out[0])
+        print(words)
+        #print(f'probs for one letter {out[0][0][1]} and it must be {1/vocab_size}') # iput must be gaussian distr #if not output is not uniform distribution
+        break
+if __name__ == '__main__': 
+    print('#'*50)
+    print('#'*50)
+    print('#'*50)
+    print('#'*50)
+
+    #dim_test()
+    ict_test()

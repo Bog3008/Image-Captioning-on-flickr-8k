@@ -60,7 +60,7 @@ class MyTokenizer:
 
     def get_unique_words(self):
         return self.unique_words
-    def encode(self, sentence):
+    def encode(self, sentence, pad_to_max=True):
         '''encode single sentence'''
         tokenized = []
         for i, word in enumerate(sentence.split()):
@@ -70,9 +70,11 @@ class MyTokenizer:
                 tokenized.append(self.word2token[word])
             else:
                 tokenized.append(self.unk_idx)
-        for i in range(self.max_seq_len - len(tokenized)):
-            tokenized.append(self.pad_idx)
-        return torch.tensor([self.bos_idx] + tokenized + [self.eos_idx])
+        tokenized += [self.eos_idx]
+        if pad_to_max:
+            for i in range(self.max_seq_len - len(tokenized)+1): # +1 because we addad [self.eos_idx]
+                tokenized.append(self.pad_idx)
+        return torch.tensor([self.bos_idx] + tokenized )
     
     def decode(self, tokens):
         words = []
@@ -82,7 +84,7 @@ class MyTokenizer:
     
     def beauty_decode(self, tokens):
         tokens = [token for token in tokens if token not in [self.unk_idx, self.bos_idx, self.eos_idx, self.pad_idx]]
-        return self.decode(tokens)
+        return ' '.join(self.decode(tokens))
 
     def encode_sentences_with_padding(self, sentences):
         '''pad to all the examples for one image to make a tensor out of them.
@@ -105,7 +107,19 @@ class MyTokenizer:
                 tokenized.append(self.pad_idx)
             tokenized_sentences.apend([self.bos_idx] + tokenized + [self.eos_idx])
         return torch.tensor(tokenized_sentences)
+    def probs2words(self, probs_t):
+        '''
+        probs_t - 2dim  tensor (seq_len, vocab_size) where each "row" probs for words
 
+        return - list of strs
+        '''
+        description = []
+        _, tokens = torch.max(probs_t, dim=1)
+        #print(tokens.shape)
+        
+        for token in tokens:
+            description.append(self.token2word[int(token)])
+        return description
 
 def tokenize_img2descr(img2descr, tokenizer):
     img2tok_list = {}
@@ -154,8 +168,10 @@ def test_dataset():
                    img_size = 256,
                    tokenizer=tokenizer)
     img, descr = ds[random.randint(0, 5)]
-    show_single_img(img)
+    #show_single_img(img)
+    print(descr)
     print(tokenizer.decode(descr)) #for 1 descr per image
+    print(tokenizer.beauty_decode(descr))
     #print(*list(map(tokenizer.decode, descr)),sep='\n' ) - for 5 descr per image
 
 def test_tokenizer():
@@ -168,6 +184,6 @@ def test_tokenizer():
 
 if __name__ == '__main__':
     print('-'*40)
-    #test_dataset()
+    test_dataset()
     #test_tokenizer()
         

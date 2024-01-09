@@ -1,6 +1,6 @@
 import os
 import torch
-
+import torch.optim as optim
 #
 
 
@@ -15,7 +15,10 @@ N_HEADS = 4
 N_TRANS_LAYERS = 6
 MAX_SEQ_LEN = 20
 
-DEVICE = 'cpu'#, 'cuda'if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
+OPTIMIZER = optim.AdamW
+LR = 1e-3
+EPOCHS = 5
 
 # FOLDERS
 IMG_FOLDER_PATH = 'data\Flickr8k_Dataset\Flicker8k_Dataset'
@@ -42,3 +45,5 @@ DESCR_LEMMA_PATH =  os.path.join(current_directory, r'data\Flickr8k_text\Flickr8
 
 img_folder_path='data\Flickr8k_Dataset\Flicker8k_Dataset'
 
+MAIN_TB_DIR = os.path.join(current_directory, 'tb_logs')
+SAVED_MODELS_DIR = 'saved_models'
