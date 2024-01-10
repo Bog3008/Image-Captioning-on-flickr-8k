@@ -46,7 +46,7 @@ def print_elapsed_time(elapsed_time, text='time pre epo'):
     os.system('cls')
     print(f'{text} {minutes}m {seconds}s')
 
-def train(model, optimizer, criterion , scaler, dloader, writer=None):
+def train(model, optimizer, criterion , scaler, dloader, num_classes, writer=None):
     model.train()
 
     for i, (img_batch, descr_batch) in enumerate(tqdm(dloader, leave=False)):
@@ -57,17 +57,18 @@ def train(model, optimizer, criterion , scaler, dloader, writer=None):
         
         with torch.cuda.amp.autocast():
             out = model(img_batch, descr_batch)
-            print('out.shape', out.shape)
-            print('descr.shape', descr_batch.shape)
-            raise RuntimeError('testend')
-            loss = criterion (out, descr_batch)
-
+            #descr_batch = nn.functional.one_hot(descr_batch, num_classes)
+            seq_len, bs, n_clas = out.shape
+            loss = criterion(out.view(seq_len*bs, n_clas), 
+                             descr_batch.view(seq_len*bs))
+            
             optimizer.zero_grad(set_to_none=True)
             scaler.scale(loss).backward(retain_graph=True)
             scaler.step(optimizer)
             scaler.update()
             #torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         
+        #<TODO> add logging and midterm train info
             
     
 
@@ -88,10 +89,10 @@ def run():
                         num_layers = config.N_TRANS_LAYERS,
                         vocab_size = vocab_size)
     ict_model = ict_model.to(config.DEVICE)
-    
-    optimizer = config.OPTIMIZER(ict_model.parameters(),
-                                 lr = config.LR)
-    loss = nn.CrossEntropyLoss()
+    optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
+    #print(tokenizer.pad_idx)
+    #return
+    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
 
     #logs
     '''tb_log_dir = os.path.join(config.MAIN_TB_DIR, config.get_time())
@@ -106,9 +107,10 @@ def run():
 
         train(model=ict_model,
               optimizer=optimizer,
-              criterion  = loss,
+              criterion=criterion,
               scaler=scaler,
               dloader=train_dl,
+              num_classes=vocab_size 
               #writer=writer
             )
         #lr_scheduler.step()
@@ -122,4 +124,22 @@ def run():
 
 
 if __name__ == '__main__':
+    print('@'*50)
+    print('@'*50)
     run()
+
+
+
+#dubug info
+'''
+print(type(out))
+print(f'out type: {out.dtype}')
+print(f'out device: {out.device}')
+print(f'out grad: {out.requires_grad}')
+print('out.shape', out.shape)
+
+print(f'descr type: {descr_batch.dtype}')
+print(f'descr device: {descr_batch.device}')
+print(f'descr grad: {descr_batch.requires_grad}')
+print('descr.shape', descr_batch.shape)
+raise RuntimeError('testend')'''

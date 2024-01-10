@@ -152,4 +152,4 @@ if __name__ == '__main__':
     print('#'*50)
 
     #dim_test()
-    ict_test()
+    ict_test()# test device must be cpu

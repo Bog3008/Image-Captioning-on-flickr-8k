@@ -115,7 +115,8 @@ class MyTokenizer:
         '''
         description = []
         _, tokens = torch.max(probs_t, dim=1)
-        #print(tokens.shape)
+        #tokens2 =torch.argmax(probs_t, dim=1)
+        #print(torch.sum(tokens==tokens)) # they are equal
         
         for token in tokens:
             description.append(self.token2word[int(token)])

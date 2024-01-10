@@ -61,9 +61,15 @@ def test_make_patches():
 def get_time():
     current_datetime = datetime.now()
     return current_datetime.strftime('%Y_%m_%d_%Hh%Mm')
+
 #
+def test_onehot():
+    inp = torch.randint(5, 10, (2, 22))
+    out = nn.functional.one_hot(inp, 6782)
+    print(out.shape)
 
 if __name__ == '__main__':
     print('-'*40)
     #test_patch_devision()
-    test_make_patches()
+    #test_make_patches()
+    test_onehot()
