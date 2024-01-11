@@ -68,6 +68,56 @@ def test_onehot():
     out = nn.functional.one_hot(inp, 6782)
     print(out.shape)
 
+def save_model(model, optimizer, filename):
+    filename = os.path.join(config.SAVED_MODELS_DIR, filename)
+    states = {
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+    }
+    torch.save(states, filename)
+
+def load_model(model, optimizer, file_name):
+    filename = os.path.join(config.SAVED_MODELS_DIR, filename)
+
+    checkpoint = torch.load(file_name, map_location=config.DEVICE)
+    model.load_state_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+
+    # If we don't do this then it will just have learning rate of old checkpoint
+    for param_group in optimizer.param_groups:
+        param_group["lr"] = config.LR
+
+def make_model_name():
+    current_date_and_time = datetime.now()
+    formatted_string = current_date_and_time.strftime('%m_%d_%H')
+    add_str = f'bs{config.BATCH_SIZE}_lr{config.LR}'
+
+@torch.no_grad()
+def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
+    fig, axs = plt.subplots(1, n_imgs, figsize=(15, 5))
+    std = mean = 0.5
+    model.to(config.DEVICE)
+    for i, (img, true_descr) in enumerate(dataset):
+        if i >= n_imgs:
+            break
+        # feed img into model here
+        img_batch = make_patches(img.unsqueeze(0), size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
+        img_batch = img_batch.to(config.DEVICE)
+        first_token = torch.tensor(tokenizer.bos_idx).unsqueeze(0).to(config.DEVICE)
+        out = model(img_batch, first_token)
+        tokens = torch.argmax(out, dim=2)
+        model_descr = 'model:' + ' '.join(tokenizer.decode(tokens))
+        #
+        img = img*std + mean
+        img = img.cpu()
+        true_descr = 'GT:' + ' '.join(tokenizer.decode(true_descr))
+
+        axs[i].imshow(img.permute(1, 2, 0))
+        axs[i].text(1, 1, true_descr, fontsize=8, bbox=dict(facecolor='white', alpha=0.5), ha="left", va="bottom")
+        axs[i].axis('off')
+
+    plt.show()
+
 if __name__ == '__main__':
     print('-'*40)
     #test_patch_devision()

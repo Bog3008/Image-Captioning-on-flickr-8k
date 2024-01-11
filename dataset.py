@@ -80,7 +80,14 @@ class MyTokenizer:
         words = []
         for token in tokens:
             words.append(self.token2word[int(token)])
+            if token == self.eos_idx:
+                break
         return words
+    def decode_batch(self, tokens_batch):
+        decoded_batch = []
+        for tokens in tokens_batch:
+            decoded_batch.append(self.decode(tokens))
+        return decoded_batch
     
     def beauty_decode(self, tokens):
         tokens = [token for token in tokens if token not in [self.unk_idx, self.bos_idx, self.eos_idx, self.pad_idx]]
@@ -114,12 +121,14 @@ class MyTokenizer:
         return - list of strs
         '''
         description = []
-        _, tokens = torch.max(probs_t, dim=1)
-        #tokens2 =torch.argmax(probs_t, dim=1)
+        #_, tokens2 = torch.max(probs_t, dim=1)
+        tokens =torch.argmax(probs_t, dim=1)
         #print(torch.sum(tokens==tokens)) # they are equal
         
         for token in tokens:
             description.append(self.token2word[int(token)])
+            if token == self.eos_idx:
+                break
         return description
 
 def tokenize_img2descr(img2descr, tokenizer):

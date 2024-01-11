@@ -3,6 +3,9 @@ import torch
 import torch.optim as optim
 #
 
+LOAD_MODEL = False
+LOAD_MODEL_NAME = 'inster name'
+WRITE_LOGS = False
 
 IMG_SIZE = 224
 PATCH_SIZE = 64
@@ -17,7 +20,7 @@ MAX_SEQ_LEN = 20
 
 DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
 OPTIMIZER = optim.AdamW
-LR = 1e-3
+LR = 3e-4
 EPOCHS = 5
 
 # FOLDERS
@@ -46,4 +49,4 @@ DESCR_LEMMA_PATH =  os.path.join(current_directory, r'data\Flickr8k_text\Flickr8
 img_folder_path='data\Flickr8k_Dataset\Flicker8k_Dataset'
 
 MAIN_TB_DIR = os.path.join(current_directory, 'tb_logs')
-SAVED_MODELS_DIR = 'saved_models'
+SAVED_MODELS_DIR = os.path.join(current_directory,'saved_models')

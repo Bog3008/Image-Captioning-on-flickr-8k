@@ -142,7 +142,7 @@ def ict_test():
         print('model out', out.shape)
 
         words = tokenizer.probs2words(out[0])
-        print(words)
+        print(' '.join(words))
         #print(f'probs for one letter {out[0][0][1]} and it must be {1/vocab_size}') # iput must be gaussian distr #if not output is not uniform distribution
         break
 if __name__ == '__main__': 
