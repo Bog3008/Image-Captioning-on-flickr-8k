@@ -83,6 +83,7 @@ class MyTokenizer:
             if token == self.eos_idx:
                 break
         return words
+    
     def decode_batch(self, tokens_batch):
         decoded_batch = []
         for tokens in tokens_batch:
@@ -124,12 +125,9 @@ class MyTokenizer:
         #_, tokens2 = torch.max(probs_t, dim=1)
         tokens =torch.argmax(probs_t, dim=1)
         #print(torch.sum(tokens==tokens)) # they are equal
-        
-        for token in tokens:
-            description.append(self.token2word[int(token)])
-            if token == self.eos_idx:
-                break
-        return description
+        return self.decode(tokens)
+    
+
 
 def tokenize_img2descr(img2descr, tokenizer):
     img2tok_list = {}

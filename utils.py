@@ -101,19 +101,18 @@ def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
         if i >= n_imgs:
             break
         # feed img into model here
-        img_batch = make_patches(img.unsqueeze(0), size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
-        img_batch = img_batch.to(config.DEVICE)
-        first_token = torch.tensor(tokenizer.bos_idx).unsqueeze(0).to(config.DEVICE)
-        out = model(img_batch, first_token)
-        tokens = torch.argmax(out, dim=2)
-        model_descr = 'model:' + ' '.join(tokenizer.decode(tokens))
+        img = img.to(config.DEVICE).unsqueeze(0)
+        #  inference must be above<>
+        tokens = model.inference(img)
+        model_descr = 'model:' + ' '.join(tokenizer.decode(tokens[0]))
         #
-        img = img*std + mean
+        img = img[0]*std + mean
         img = img.cpu()
         true_descr = 'GT:' + ' '.join(tokenizer.decode(true_descr))
 
+        final_descr = model_descr + '\n' + true_descr
         axs[i].imshow(img.permute(1, 2, 0))
-        axs[i].text(1, 1, true_descr, fontsize=8, bbox=dict(facecolor='white', alpha=0.5), ha="left", va="bottom")
+        axs[i].text(1, 1, final_descr, fontsize=8, bbox=dict(facecolor='white', alpha=0.5), ha="left", va="bottom")
         axs[i].axis('off')
 
     plt.show()

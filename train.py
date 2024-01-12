@@ -54,7 +54,7 @@ def train(model, optimizer, criterion , scaler, dloader):
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
 
-        img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
+        #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
         
         with torch.cuda.amp.autocast():
             out = model(img_batch, descr_batch)
@@ -81,7 +81,7 @@ def evaluate(model, criterion, dloader):
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
 
-        img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
+        #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
         
         with torch.cuda.amp.autocast():
             out = model(img_batch, descr_batch)
@@ -104,12 +104,20 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
     img_batch=img_batch.to(config.DEVICE)
     descr_batch=descr_batch.to(config.DEVICE)
 
-    img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
-    
+    #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
+    padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
     with torch.cuda.amp.autocast():
         out = model(img_batch, descr_batch)
         #descr_batch = nn.functional.one_hot(descr_batch, num_classes)
-        seq_len, bs, n_clas = out.shape
+        bs, seq_len, n_clas = out.shape
+        #print(out.view(seq_len*bs, n_clas).shape)
+        #print(descr_batch.view(seq_len*bs).shape)
+        #print('cuted', descr_batch[:,:-1].shape)
+        #print('kall', padd_tensor.shape)
+        descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
+        #print('moded descr_batch shape', descr_batch.shape)
+        #print('moded descr_batch', descr_batch)
+        #raise RuntimeError('test')
         loss = criterion(out.view(seq_len*bs, n_clas), 
                             descr_batch.view(seq_len*bs))
         
@@ -119,12 +127,16 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         scaler.update()
         #torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
         tokens = torch.argmax(out, dim=2)
+        ###print(tokens[0])
         #print('tok sh', tokens.shape)
         #print('ref sh', descr_batch.shape)
         candidates = tokenizer.decode_batch(tokens)
         reference = tokenizer.decode_batch(descr_batch)
+        for single_cand, singl_ref in zip(candidates, reference):
+            print('candidates', ' '.join(single_cand))
+            print('reference', ' '.join(singl_ref))
         #print('candidates', ' '.join(candidates[0]))
-        #print('reference', ' '.join(reference[0]))
+        #print('reference', ' '.join(reference[0])
         avg_bleu += bleu_score(candidate_corpus=candidates, references_corpus=reference)
         avg_loss += loss
         
@@ -144,7 +156,8 @@ def run_train_one_batch(local_epochs):
                         embedding_size = config.EMBED_SIZE,
                         num_heads = config.N_HEADS,
                         num_layers = config.N_TRANS_LAYERS,
-                        vocab_size = vocab_size)
+                        vocab_size = vocab_size,
+                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx)
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
@@ -169,7 +182,7 @@ def run_train_one_batch(local_epochs):
         #lr_scheduler.step()
         losses.append(float(epo_loss))
         bleu_scores.append(float(epo_bleu))
-    utils.img_and_descr(ict_model, batch, tokenizer)
+    utils.img_and_descr(ict_model, zip(*batch), tokenizer)
     print('Losses:', losses)
     print('Bleu', bleu_scores)
 
@@ -190,7 +203,8 @@ def run():
                         embedding_size = config.EMBED_SIZE,
                         num_heads = config.N_HEADS,
                         num_layers = config.N_TRANS_LAYERS,
-                        vocab_size = vocab_size)
+                        vocab_size = vocab_size,
+                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx)
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
@@ -236,7 +250,7 @@ if __name__ == '__main__':
     print('@'*50)
     print('@'*50)
     #run()
-    run_train_one_batch(local_epochs=10)
+    run_train_one_batch(local_epochs=100)
 
 
 
