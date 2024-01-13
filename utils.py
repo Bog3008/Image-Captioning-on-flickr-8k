@@ -7,6 +7,7 @@ from dataset import *
 import math
 import config
 from datetime import datetime
+from torchtext.data.metrics import bleu_score
 
 # Define function to split image into patches
 # config.PATCH_SIZE - x and y size of patch; config.PATCH_STRIDE - step in pixels  
@@ -91,6 +92,7 @@ def make_model_name():
     current_date_and_time = datetime.now()
     formatted_string = current_date_and_time.strftime('%m_%d_%H')
     add_str = f'bs{config.BATCH_SIZE}_lr{config.LR}'
+    return formatted_string+add_str
 
 @torch.no_grad()
 def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
@@ -116,6 +118,12 @@ def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
         axs[i].axis('off')
 
     plt.show()
+
+def calc_bleu(tokens, descr_batch, tokenizer):
+        candidates = tokenizer.decode_batch(tokens)
+        reference = tokenizer.decode_batch(descr_batch)
+        reference = [[single_ref] for single_ref in reference]
+        return bleu_score(candidate_corpus=candidates, references_corpus=reference)
 
 if __name__ == '__main__':
     print('-'*40)

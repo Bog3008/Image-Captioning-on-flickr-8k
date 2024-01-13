@@ -44,27 +44,26 @@ def get_train_test_dl(img2descr_lemma, tokenizer, shuffle_train=True, shuffle_te
 def print_elapsed_time(elapsed_time, text='time pre epo'):
     minutes = int(elapsed_time.total_seconds() // 60)
     seconds = int(elapsed_time.total_seconds() % 60)
-    os.system('cls')
     print(f'{text} {minutes}m {seconds}s')
 
-def train(model, optimizer, criterion , scaler, dloader):
+def train(model, optimizer, criterion , scaler, dloader, tokenizer):
     model.train()
     avg_loss = 0
+    padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
     for img_batch, descr_batch in tqdm(dloader, leave=False):
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
-
-        #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
         
         with torch.cuda.amp.autocast():
             out = model(img_batch, descr_batch)
-            #descr_batch = nn.functional.one_hot(descr_batch, num_classes)
-            seq_len, bs, n_clas = out.shape
+            
+            bs, seq_len, n_clas = out.shape
+            descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
             loss = criterion(out.view(seq_len*bs, n_clas), 
                              descr_batch.view(seq_len*bs))
             
             optimizer.zero_grad(set_to_none=True)
-            scaler.scale(loss).backward(retain_graph=True)
+            scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
             #torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
@@ -73,28 +72,54 @@ def train(model, optimizer, criterion , scaler, dloader):
     return avg_loss/len(dloader)       
 
 @torch.no_grad()
-def evaluate(model, criterion, dloader):
+def evaluate(model, criterion, dloader, tokenizer, use_inference=False):
     model.eval()
     avg_loss = 0
     avg_bleu = 0
+    
+
     for img_batch, descr_batch in tqdm(dloader, leave=False):
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
-
-        #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
         
         with torch.cuda.amp.autocast():
+            
             out = model(img_batch, descr_batch)
-            seq_len, bs, n_clas = out.shape
+            bs, seq_len, n_clas = out.shape
+            padd_tensor = torch.full((bs, 1), tokenizer.pad_idx).to(config.DEVICE)
+            descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
+
             loss = criterion(out.view(seq_len*bs, n_clas), 
                              descr_batch.view(seq_len*bs))
             avg_loss += loss
-            #calc blue
+            #calc forward bleu
             tokens = torch.argmax(out, dim=2)
-            avg_bleu += bleu_score(candidate_corpus=tokens, references_corpus=descr_batch)
-        
-        
+            avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
+            #calc inference bleu
+            '''if use_inference:
+                tokens = model.inference(img_batch)
+                avg_infer_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)'''
     return avg_loss/len(dloader), avg_bleu/len(dloader)
+
+@torch.no_grad()
+def evaluate_iference(model, dloader, tokenizer):
+    model.eval()
+    avg_bleu = 0
+    padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
+
+    for img_batch, descr_batch in tqdm(dloader, leave=False):
+        img_batch=img_batch.to(config.DEVICE)
+        descr_batch=descr_batch.to(config.DEVICE)
+        
+        with torch.cuda.amp.autocast():
+            
+            tokens = model.inference(img_batch)
+            avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
+            #descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
+            
+    return avg_bleu/len(dloader)
+
+
 
 def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
     model.train()
@@ -105,19 +130,12 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
     descr_batch=descr_batch.to(config.DEVICE)
 
     #img_batch = make_patches(img_batch, size=config.PATCH_SIZE, stride=config.PATCH_STRIDE)
-    padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
+    #padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
     with torch.cuda.amp.autocast():
         out = model(img_batch, descr_batch)
-        #descr_batch = nn.functional.one_hot(descr_batch, num_classes)
         bs, seq_len, n_clas = out.shape
-        #print(out.view(seq_len*bs, n_clas).shape)
-        #print(descr_batch.view(seq_len*bs).shape)
-        #print('cuted', descr_batch[:,:-1].shape)
-        #print('kall', padd_tensor.shape)
+        padd_tensor = torch.full((bs, 1), tokenizer.pad_idx).to(config.DEVICE)   
         descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
-        #print('moded descr_batch shape', descr_batch.shape)
-        #print('moded descr_batch', descr_batch)
-        #raise RuntimeError('test')
         loss = criterion(out.view(seq_len*bs, n_clas), 
                             descr_batch.view(seq_len*bs))
         
@@ -125,22 +143,20 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         scaler.scale(loss).backward(retain_graph=True)
         scaler.step(optimizer)
         scaler.update()
-        #torch.nn.utils.clip_grad_norm_(model.parameters(), clip)
+
         tokens = torch.argmax(out, dim=2)
-        ###print(tokens[0])
-        #print('tok sh', tokens.shape)
-        #print('ref sh', descr_batch.shape)
+        #avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
         candidates = tokenizer.decode_batch(tokens)
         reference = tokenizer.decode_batch(descr_batch)
+        reference = [[single_ref] for single_ref in reference]
         for single_cand, singl_ref in zip(candidates, reference):
             print('candidates', ' '.join(single_cand))
             print('reference', ' '.join(singl_ref))
-        #print('candidates', ' '.join(candidates[0]))
-        #print('reference', ' '.join(reference[0])
-        avg_bleu += bleu_score(candidate_corpus=candidates, references_corpus=reference)
+        
+        #avg_bleu += bleu_score(candidate_corpus=candidates, references_corpus=reference)
         avg_loss += loss
         
-    return avg_loss/config.BATCH_SIZE, avg_bleu/config.BATCH_SIZE
+    return avg_loss, avg_bleu
 
 def run_train_one_batch(local_epochs):
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
@@ -213,34 +229,46 @@ def run():
         utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME, )
     #logs
     if config.WRITE_LOGS:
-        tb_log_dir = os.path.join(config.MAIN_TB_DIR, config.get_time())
+        tb_log_dir = os.path.join(config.MAIN_TB_DIR, utils.get_time())
         writer = SummaryWriter(tb_log_dir)
 
     start_time= epo_start_time = datetime.now()
 
     best_test_loss = float('+inf')
+    test_loss, test_bleu, test_inference_bleu = None, None, None
+    best_test_inference_bleu = 0
+    epo_loss = 0
     #train
     for epo in range(config.EPOCHS):
+        os.system('cls')
         print(f'epo {epo+1}/{config.EPOCHS}')
+        print(f'train avg loss: {epo_loss}')
+        print(f'epo: {epo}; test_loss: {test_loss}; test_bleu: {test_bleu}')
+        print(f'inferene bleu: {test_inference_bleu}')
+        print_elapsed_time(elapsed_time=datetime.now() - epo_start_time)
         epo_start_time = datetime.now()
-
         epo_loss = train(model=ict_model,
                         optimizer=optimizer,
                         criterion=criterion,
                         scaler=scaler,
                         dloader=train_dl,
-                        #writer=writer
+                        tokenizer=tokenizer
                         )
         #lr_scheduler.step()
-        test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl)
+        test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl, tokenizer=tokenizer, use_inference=True)
+        if epo % 2:
+            test_inference_bleu = evaluate_iference(model=ict_model, dloader=test_dl, tokenizer=tokenizer)
+            if config.SAVE_MODEL and (test_inference_bleu > 0) and (test_inference_bleu > best_test_inference_bleu):
+                utils.save_model(ict_model, optimizer, model_name+'_BLEU')
+            if config.WRITE_LOGS:
+                writer.add_scalar('Metrics/bleu_test_inference', test_inference_bleu, epo)
         if config.WRITE_LOGS:
             writer.add_scalar('Loss/train', epo_loss, epo)
             writer.add_scalar('Loss/test', test_loss, epo)
-            writer.add_scalar('Metrics/bleu', test_bleu, epo)
+            writer.add_scalar('Metrics/bleu_test_forward', test_bleu, epo)
 
-        print_elapsed_time(elapsed_time=datetime.now() - epo_start_time)
-
-        if test_loss < best_test_loss:
+    
+        if config.SAVE_MODEL and test_loss < best_test_loss:
             utils.save_model(ict_model, optimizer, model_name)
     
     print_elapsed_time(elapsed_time=datetime.now() - start_time, text='model training time')

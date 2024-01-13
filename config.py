@@ -5,13 +5,15 @@ import torch.optim as optim
 
 LOAD_MODEL = False
 LOAD_MODEL_NAME = 'inster name'
-WRITE_LOGS = False
+WRITE_LOGS = True
+SAVE_MODEL = True
+EPOCHS = 100
+BATCH_SIZE = 2
 
 IMG_SIZE = 224
 PATCH_SIZE = 64
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
 
-BATCH_SIZE = 2
 NUM_WORKERS = 6
 EMBED_SIZE = 256
 N_HEADS = 4
@@ -20,8 +22,8 @@ MAX_SEQ_LEN = 20
 
 DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
 OPTIMIZER = optim.AdamW
-LR = 3e-4
-EPOCHS = 5
+LR = 1e-3 #3e-4
+
 
 # FOLDERS
 IMG_FOLDER_PATH = 'data\Flickr8k_Dataset\Flicker8k_Dataset'
