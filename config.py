@@ -6,10 +6,12 @@ import torch.optim as optim
 LOAD_MODEL = False
 LOAD_MODEL_NAME = 'inster name'
 WRITE_LOGS = True
-SAVE_MODEL = True
-EPOCHS = 100
-BATCH_SIZE = 2
+SAVE_MODEL = False
+BATCH_SIZE = 64
+EPOCHS = 200
+WARMUP_STEPS = 30
 
+CLIP_VALUE = 1
 IMG_SIZE = 224
 PATCH_SIZE = 64
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
@@ -22,7 +24,7 @@ MAX_SEQ_LEN = 20
 
 DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
 OPTIMIZER = optim.AdamW
-LR = 1e-3 #3e-4
+LR = 1e-4
 
 
 # FOLDERS

@@ -1,3 +1,4 @@
+from typing import Any
 import torch
 import torch.nn as nn
 import torchvision
@@ -124,6 +125,15 @@ def calc_bleu(tokens, descr_batch, tokenizer):
         reference = tokenizer.decode_batch(descr_batch)
         reference = [[single_ref] for single_ref in reference]
         return bleu_score(candidate_corpus=candidates, references_corpus=reference)
+
+class warmup_lr_sheduler:
+    def __init__(self, total_epochs, warmup_steps) -> None:
+        self.total_epochs = total_epochs
+        self.warmup_steps = warmup_steps
+    def __call__(self, step):
+        if step < self.warmup_steps:
+            return float(step) / float(max(1, self.warmup_steps))
+        return max(0.0, 0.5 * (1.0 + math.cos((step - self.warmup_steps) / float(max(1, (self.total_epochs+1) - self.warmup_steps)) * math.pi)))
 
 if __name__ == '__main__':
     print('-'*40)
