@@ -222,11 +222,12 @@ def run():
     #model & optim
     scaler = torch.cuda.amp.GradScaler()
     ict_model = ICTrans(n_patches= calc_num_patches(),
-                        embedding_size = config.EMBED_SIZE,
+                        embedding_size = config.EMBED_SIZE, 
                         num_heads = config.N_HEADS,
                         num_layers = config.N_TRANS_LAYERS,
                         vocab_size = vocab_size,
-                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx)
+                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx,
+                        dropout=config.DROPOUT)
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)

@@ -11,7 +11,9 @@ BATCH_SIZE = 64
 EPOCHS = 200
 WARMUP_STEPS = 30
 
+DROPOUT = 0.1
 CLIP_VALUE = 1
+
 IMG_SIZE = 224
 PATCH_SIZE = 64
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
@@ -24,7 +26,7 @@ MAX_SEQ_LEN = 20
 
 DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
 OPTIMIZER = optim.AdamW
-LR = 1e-4
+LR = 5e-5
 
 
 # FOLDERS

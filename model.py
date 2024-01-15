@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torchvision.models as models
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -129,7 +130,97 @@ class ICTrans(nn.Module):
             #ADD only last token
             #print(tokens_in)
         return tokens_in
+
+
+class RTnet(nn.Module):
+    def __init__(self, n_patches, embedding_size, num_heads, num_layers, vocab_size, bos_idx, eos_idx, dropout=0.1):
+        super().__init__()
+        self.bos_idx = bos_idx
+        self.eos_idx = eos_idx
+
+        
+        # y(tokenized sequence) to embeding + positional encodeing
+        self.vocab_embed = nn.Embedding(vocab_size, embedding_size)
+        self.pos_enc = PositionalEncoding(d_model=embedding_size, dropout=dropout)
+
+        self.backbone, out_shape = self.get_backbone()
+        # out_shape may look like 1x512x7x7. 512 too much i want 16
+        bs, n_features, x_size, y_size = out_shape
+        self.img_compres = nn.Conv2d(n_features, 16, kernel_size=(1, 1))
+        self.img_embed = nn.Linear(x_size*y_size, embedding_size)
+
+        self.transformer = nn.Transformer(
+            d_model=embedding_size,
+            nhead=num_heads,
+            num_encoder_layers=num_layers,
+            num_decoder_layers=num_layers,
+            dropout=dropout,
+            batch_first=False
+        )
+        #raise RuntimeError('It must return probs for every character')
+        self.lin = nn.Sequential(
+            nn.Linear(embedding_size, vocab_size*2),
+            nn.LeakyReLU(0.2),
+            nn.Linear(vocab_size*2, vocab_size))
     
+    def forward(self, x, y):
+        '''
+        x - images batch
+        y - tokenized description batch
+        '''
+        y = self.prepare_y(y)
+        x = self.prepare_x(x)
+        tgt_mask = get_tgt_mask(y.shape[0])
+        t_out = self.transformer(src= x, tgt=y, tgt_mask = tgt_mask)
+        probs = self.lin(t_out.permute(1, 0, 2)) #permute: (seq_len, bs, emb_size) -> (bs, seq_len, emb_size))
+        return probs
+    
+    def prepare_x(self, x):
+        x = self.backbone(x) # 1x512x7x7
+        x = self.img_compres(x)
+        bs, n_p, x_size, y_size = x.shape
+        #print('COMPRESSION', x.shape)
+        #print('COMPRESSION view', x.view(bs, n_p, x_size * y_size).shape)
+        x = x.view(n_p, bs, x_size * y_size)
+        x = self.img_embed(x)
+        return x
+    def prepare_y(self, y):
+        y = self.vocab_embed(y)
+        y = y.permute(1, 0, 2) #from (bs, seq_len, features) to (seq_len, bs, features)
+        y += self.pos_enc(y)
+        return y
+    
+    def get_backbone(self):
+        resnet18 = models.resnet18(pretrained=True)
+        newmodel = torch.nn.Sequential(*(list(resnet18.children())[:-2])) # kick adaptive avgpool and linear layer
+        for param in newmodel.parameters():
+            param.requires_grad = False
+        return newmodel, torch.Size([1, 512, 7, 7]) # out is 1x512x7x7
+    
+
+    def inference(self, x):
+        '''
+        x - image batch
+        '''
+        x = self.prepare_x(x)
+        bs = x.shape[1] 
+        enc_out = self.transformer.encoder(x)
+        
+        tokens_in = torch.full((bs, 1), self.bos_idx, dtype=torch.long)
+        tokens_in = tokens_in.to(config.DEVICE)
+
+        for i in range(config.MAX_SEQ_LEN + 2): # +2 for bos and eos
+            dec_in = self.prepare_y(tokens_in)
+            dec_out = self.transformer.decoder(tgt=dec_in, memory=enc_out)
+            probs = self.lin(dec_out.permute(1, 0, 2))
+            tokens = torch.argmax(probs, dim=2)
+            tokens = tokens[:, -1].unsqueeze(1)
+            #print('token shape', tokens.shape)
+            #print('tokens_in shape', tokens_in.shape)
+            tokens_in = torch.concat((tokens_in, tokens), dim=1)
+            #ADD only last token
+            #print(tokens_in)
+        return tokens_in
     
     
 
@@ -142,7 +233,7 @@ def dim_test():
     x = x.view(xpn, ypn, bs, ch*xps*yps).view(xpn * ypn, bs, ch*xps*yps)
     print(x.shape)
 
-def ict_test():
+def ict_test(model_name='ICT'):
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
     tokenizer = MyTokenizer(img2descr_lemma)
     vocab_size = len(tokenizer.get_unique_words())
@@ -158,12 +249,22 @@ def ict_test():
                     #num_workers=config.NUM_WORKERS,
                     pin_memory=True)
     
-    model = ICTrans(n_patches= calc_num_patches(),
-                    embedding_size = config.EMBED_SIZE,
-                    num_heads = config.N_HEADS,
-                    num_layers = config.N_TRANS_LAYERS,
-                    vocab_size = vocab_size,
-                    bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx)
+    model_params = {
+    "n_patches": calc_num_patches(),
+    "embedding_size": config.EMBED_SIZE,
+    "vocab_size": vocab_size,
+    "bos_idx": tokenizer.bos_idx,
+    "eos_idx": tokenizer.eos_idx,
+    "num_heads": config.N_HEADS,
+    "num_layers": config.N_TRANS_LAYERS,
+    }
+    
+    if model_name == 'ICT':
+        model = ICTrans(**model_params)
+    if model_name == 'RT':
+        model = RTnet(**model_params)
+    
+
     model.to(config.DEVICE)
     for img_batch, discr_batch in dl:
         img_batch, discr_batch = img_batch.to(config.DEVICE), discr_batch.to(config.DEVICE)
@@ -176,7 +277,7 @@ def ict_test():
         print(' '.join(words))
         #print(f'probs for one letter {out[0][0][1]} and it must be {1/vocab_size}') # iput must be gaussian distr #if not output is not uniform distribution
         break
-def itc_inference_test():
+def itc_inference_test(model_name='ICT'):
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
     tokenizer = MyTokenizer(img2descr_lemma)
     vocab_size = len(tokenizer.get_unique_words())
@@ -192,13 +293,20 @@ def itc_inference_test():
                     #num_workers=config.NUM_WORKERS,
                     pin_memory=True)
     
-    model = ICTrans(n_patches= calc_num_patches(),
-                    embedding_size = config.EMBED_SIZE,
-                    num_heads = config.N_HEADS,
-                    num_layers = config.N_TRANS_LAYERS,
-                    vocab_size = vocab_size,
-                    bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx
-                    )
+    model_params = {
+    "n_patches": calc_num_patches(),
+    "embedding_size": config.EMBED_SIZE,
+    "vocab_size": vocab_size,
+    "bos_idx": tokenizer.bos_idx,
+    "eos_idx": tokenizer.eos_idx,
+    "num_heads": config.N_HEADS,
+    "num_layers": config.N_TRANS_LAYERS,
+    }
+    
+    if model_name == 'ICT':
+        model = ICTrans(**model_params)
+    if model_name == 'RT':
+        model = RTnet(**model_params)
     model.to(config.DEVICE)
     for img_batch, discr_batch in dl:
         img_batch, discr_batch = img_batch.to(config.DEVICE), discr_batch.to(config.DEVICE)
@@ -219,5 +327,5 @@ if __name__ == '__main__':
     print('#'*50)
 
     #dim_test()
-    #ict_test()
-    itc_inference_test()
+    #ict_test('RT')
+    itc_inference_test('RT')
