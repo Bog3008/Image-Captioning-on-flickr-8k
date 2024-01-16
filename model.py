@@ -222,7 +222,100 @@ class RTnet(nn.Module):
             #print(tokens_in)
         return tokens_in
     
+class CTnet(nn.Module):
+    def __init__(self, n_patches, embedding_size, num_heads, num_layers, vocab_size, bos_idx, eos_idx, dropout=0.1):
+        super().__init__()
+        self.bos_idx = bos_idx
+        self.eos_idx = eos_idx
+
+        # y(tokenized sequence) to embeding + positional encodeing
+        self.vocab_embed = nn.Embedding(vocab_size, embedding_size)
+        self.pos_enc = PositionalEncoding(d_model=embedding_size, dropout=dropout)
+
+        #encoder
+        self.backbone, out_shape = self.get_backbone()
+        # out_shape may look like 1x512x7x7. 512 too much i want 16
+        bs, n_features, x_size, y_size = out_shape
+        self.img_compres = nn.Conv2d(n_features, 32, kernel_size=(1, 1))
+        self.img_embed = nn.Linear(x_size*y_size, embedding_size)
+        
+        #decoder
+        full_transformer = nn.Transformer(
+            d_model=embedding_size,
+            nhead=num_heads,
+            num_encoder_layers=num_layers,
+            num_decoder_layers=num_layers,
+            dropout=dropout,
+            batch_first=False
+        )
+        self.decoder = full_transformer.decoder # why dont use TransformerDecoder?
+        #I took a look at https://pytorch.org/docs/stable/_modules/torch/nn/modules/transformer.html#TransformerDecoder
+        # get decoder from transormer easier than define TransformerDecoderLayer, TransformerDecoder and LayerNorm separately
+        
+        self.lin = nn.Sequential(
+            nn.Linear(embedding_size, vocab_size*2),
+            nn.LeakyReLU(0.2),
+            nn.Linear(vocab_size*2, vocab_size))
     
+    def forward(self, x, y):
+        '''
+        x - images batch
+        y - tokenized description batch
+        '''
+        y = self.prepare_y(y)
+        tgt_mask = get_tgt_mask(y.shape[0])
+        encoded_x = self.prepare_x(x)
+
+        encoder_out = self.decoder(tgt=y, memory=encoded_x, tgt_mask=tgt_mask)
+
+        probs = self.lin(encoder_out.permute(1, 0, 2)) #permute: (seq_len, bs, emb_size) -> (bs, seq_len, emb_size))
+        return probs
+    
+    def prepare_x(self, x):
+        x = self.backbone(x) # smth like 1x512x7x7
+        x = self.img_compres(x) # smth like 1x16x7x7
+        bs, n_p, x_size, y_size = x.shape
+        x = x.view(n_p, bs, x_size * y_size) # smth like 16x1x49
+        x = self.img_embed(x) # smth like 16x1x256 # if embed size=256 
+        return x
+    
+    def prepare_y(self, y):
+        y = self.vocab_embed(y)
+        y = y.permute(1, 0, 2) #from (bs, seq_len, features) to (seq_len, bs, features)
+        y += self.pos_enc(y)
+        return y
+    
+    def get_backbone(self):
+        resnet18 = models.resnet18(pretrained=True)
+        newmodel = torch.nn.Sequential(*(list(resnet18.children())[:-2])) # kick adaptive avgpool and linear layer
+        for param in newmodel.parameters():
+            param.requires_grad = False
+        return newmodel, torch.Size([1, 512, 7, 7]) # out is 1x512x7x7
+    
+
+    def inference(self, x):
+        '''
+        x - image batch
+        '''
+        encoder_out = self.prepare_x(x)
+        bs = encoder_out.shape[1] 
+        
+        tokens_in = torch.full((bs, 1), self.bos_idx, dtype=torch.long)
+        tokens_in = tokens_in.to(config.DEVICE)
+
+        for i in range(config.MAX_SEQ_LEN + 2): # +2 for bos and eos
+            dec_in = self.prepare_y(tokens_in)
+            dec_out = self.decoder(tgt=dec_in, memory=encoder_out)
+            probs = self.lin(dec_out.permute(1, 0, 2))
+
+            tokens = torch.argmax(probs, dim=2)
+            tokens = tokens[:, -1].unsqueeze(1)
+            #print('token shape', tokens.shape)
+            #print('tokens_in shape', tokens_in.shape)
+            tokens_in = torch.concat((tokens_in, tokens), dim=1)
+            #ADD only last token
+            #print(tokens_in)
+        return tokens_in
 
 def dim_test():
     #x = torch.randn(8, 8, 32, 3, 64, 64)
@@ -263,6 +356,8 @@ def ict_test(model_name='ICT'):
         model = ICTrans(**model_params)
     if model_name == 'RT':
         model = RTnet(**model_params)
+    if model_name == 'CT':
+        model = CTnet(**model_params)
     
 
     model.to(config.DEVICE)
@@ -307,7 +402,11 @@ def itc_inference_test(model_name='ICT'):
         model = ICTrans(**model_params)
     if model_name == 'RT':
         model = RTnet(**model_params)
+    if model_name == 'CT':
+        model = CTnet(**model_params)
+
     model.to(config.DEVICE)
+
     for img_batch, discr_batch in dl:
         img_batch, discr_batch = img_batch.to(config.DEVICE), discr_batch.to(config.DEVICE)
         print('before patch devision',img_batch.shape, discr_batch.shape)
@@ -327,5 +426,5 @@ if __name__ == '__main__':
     print('#'*50)
 
     #dim_test()
-    #ict_test('RT')
-    itc_inference_test('RT')
+    #ict_test('CT')
+    itc_inference_test('CT')

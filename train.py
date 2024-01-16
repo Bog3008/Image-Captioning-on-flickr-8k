@@ -16,7 +16,7 @@ import config
 import utils
 from utils import make_patches, calc_num_patches
 from dataset import FlickerDS, MyTokenizer, get_img2discr
-from model import ICTrans
+from model import ICTrans, RTnet, CTnet
 
 def get_train_test_dl(img2descr_lemma, tokenizer, shuffle_train=True, shuffle_test=True):
     train_ds = FlickerDS(img_folder_path=config.IMG_FOLDER_PATH,
@@ -150,11 +150,12 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         tokens = model.inference(img_batch) #<>
         #tokens = torch.argmax(out, dim=2)
         avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
-        '''candidates = tokenizer.decode_batch(tokens)
+
+        candidates = tokenizer.decode_batch(tokens)
         reference = tokenizer.decode_batch(descr_batch)
         reference_p = [[single_ref] for single_ref in reference]
         print('candidates', ' '.join(candidates[0]))
-        print('reference', ' '.join(reference[0]))'''
+        print('reference', ' '.join(reference[0]))
         '''for single_cand, singl_ref in zip(candidates, reference):
             print('candidates', ' '.join(single_cand))
             print('reference', ' '.join(singl_ref))'''
@@ -164,7 +165,7 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         
     return avg_loss, avg_bleu
 
-def run_train_one_batch(local_epochs):
+def run_train_one_batch(local_epochs, model_type='ICT'):
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
     tokenizer = MyTokenizer(img2descr_lemma)
     vocab_size = len(tokenizer.get_unique_words())
@@ -174,12 +175,21 @@ def run_train_one_batch(local_epochs):
     
     #model & optim
     scaler = torch.cuda.amp.GradScaler()
-    ict_model = ICTrans(n_patches= calc_num_patches(),
-                        embedding_size = config.EMBED_SIZE,
-                        num_heads = config.N_HEADS,
-                        num_layers = config.N_TRANS_LAYERS,
-                        vocab_size = vocab_size,
-                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx)
+    model_params = {"n_patches": calc_num_patches(),
+               "embedding_size": config.EMBED_SIZE,
+               "num_heads": config.N_HEADS,
+               "num_layers": config.N_TRANS_LAYERS,
+               "vocab_size": vocab_size,
+               "bos_idx": tokenizer.bos_idx,
+               "eos_idx": tokenizer.eos_idx,
+               "dropout": config.DROPOUT}
+    if model_type == 'ICT':
+        ict_model = ICTrans(**model_params)
+    if model_type == 'RT':
+        ict_model = RTnet(**model_params)
+    if model_type == 'CT':
+        ict_model = CTnet(**model_params)
+
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
@@ -204,11 +214,11 @@ def run_train_one_batch(local_epochs):
         #lr_scheduler.step()
         losses.append(float(epo_loss))
         bleu_scores.append(float(epo_bleu))
-    utils.img_and_descr(ict_model, zip(*batch), tokenizer)
+    utils.img_and_descr(ict_model, test_dl, tokenizer, batch=batch)
     print('Losses:', losses)
     print('Bleu', bleu_scores)
 
-def run():
+def run(model_type='ICT'):
     model_name = utils.make_model_name()
     #vocab and tokenizer
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
@@ -217,21 +227,29 @@ def run():
 
     #dataloaders
     train_dl, test_dl = get_train_test_dl(img2descr_lemma, tokenizer)
-    img, descr = next(iter(test_dl))
     
     #model & optim
     scaler = torch.cuda.amp.GradScaler()
-    ict_model = ICTrans(n_patches= calc_num_patches(),
-                        embedding_size = config.EMBED_SIZE, 
-                        num_heads = config.N_HEADS,
-                        num_layers = config.N_TRANS_LAYERS,
-                        vocab_size = vocab_size,
-                        bos_idx = tokenizer.bos_idx, eos_idx=tokenizer.eos_idx,
-                        dropout=config.DROPOUT)
+
+    model_params = {"n_patches": calc_num_patches(),
+               "embedding_size": config.EMBED_SIZE,
+               "num_heads": config.N_HEADS,
+               "num_layers": config.N_TRANS_LAYERS,
+               "vocab_size": vocab_size,
+               "bos_idx": tokenizer.bos_idx,
+               "eos_idx": tokenizer.eos_idx,
+               "dropout": config.DROPOUT}
+    if model_type == 'ICT':
+        ict_model = ICTrans(**model_params)
+    if model_type == 'RT':
+        ict_model = RTnet(**model_params)
+    if model_type == 'CT':
+        ict_model = CTnet(**model_params)
+
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)
-    #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
 
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
     
@@ -256,6 +274,9 @@ def run():
         print(f'epo: {epo}; test_loss: {test_loss}; test_bleu: {test_bleu}')
         print(f'inferene bleu: {test_inference_bleu}')
         print_elapsed_time(elapsed_time=datetime.now() - epo_start_time)
+
+        utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
+        utils.show_descr(model=ict_model, dl=test_dl, tokenizer=tokenizer, title='test sentence comparison')
         
         epo_start_time = datetime.now()
         epo_loss = train(model=ict_model,
@@ -265,8 +286,10 @@ def run():
                         dloader=train_dl, 
                         tokenizer=tokenizer
                         )
-        #lr_scheduler.step()
+        lr_scheduler.step()
         test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl, tokenizer=tokenizer, use_inference=True)
+        
+
         if True or epo % 2:
             test_inference_bleu = evaluate_iference(model=ict_model, dloader=test_dl, tokenizer=tokenizer)
             if config.SAVE_MODEL and (test_inference_bleu > 0) and (test_inference_bleu > best_test_inference_bleu):
@@ -284,12 +307,14 @@ def run():
     
     print_elapsed_time(elapsed_time=datetime.now() - start_time, text='model training time')
 
+    utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=4)
+    utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=4)
 
 if __name__ == '__main__':
     print('@'*50)
     print('@'*50)
-    run()
-    #run_train_one_batch(local_epochs=400) # added inference bleu
+    run(model_type='ICT')
+    #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
 
 
 

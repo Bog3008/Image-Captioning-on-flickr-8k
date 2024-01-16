@@ -96,9 +96,13 @@ def make_model_name():
     return formatted_string+add_str
 
 @torch.no_grad()
-def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
+def img_and_descr(model, dataloader, tokenizer, batch=None, n_imgs = 2, title=None):
+    if batch is None:
+        batch = next(iter(dataloader))
+    dataset = zip(*batch)
     fig, axs = plt.subplots(1, n_imgs, figsize=(15, 5))
     std = mean = 0.5
+    model.eval()
     model.to(config.DEVICE)
     for i, (img, true_descr) in enumerate(dataset):
         if i >= n_imgs:
@@ -118,6 +122,8 @@ def img_and_descr(model, dataset, tokenizer, n_imgs = 2):
         axs[i].text(1, 1, final_descr, fontsize=8, bbox=dict(facecolor='white', alpha=0.5), ha="left", va="bottom")
         axs[i].axis('off')
 
+    if title is not None:
+        plt.title(title)
     plt.show()
 
 def calc_bleu(tokens, descr_batch, tokenizer):
@@ -134,6 +140,28 @@ class warmup_lr_sheduler:
         if step < self.warmup_steps:
             return float(step) / float(max(1, self.warmup_steps))
         return max(0.0, 0.5 * (1.0 + math.cos((step - self.warmup_steps) / float(max(1, (self.total_epochs+1) - self.warmup_steps)) * math.pi)))
+
+@torch.no_grad()
+def show_descr(model, dl, tokenizer, title=None):
+    model.eval()
+    model.to(config.DEVICE)
+
+    batch = next(iter(dl))
+    dataset = zip(*batch)
+    
+    for i, (img, true_descr) in enumerate(dataset):
+        img = img.to(config.DEVICE).unsqueeze(0)
+        #  inference must be above<>
+        tokens = model.inference(img)
+        model_descr = 'model:' + ' '.join(tokenizer.decode(tokens[0]))
+        true_descr = 'GT:' + ' '.join(tokenizer.decode(true_descr))
+        print()
+        if title is not None:
+            print(title)
+        print('\t', model_descr)
+        print('\t', true_descr)
+        break
+
 
 if __name__ == '__main__':
     print('-'*40)
