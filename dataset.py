@@ -152,7 +152,9 @@ class FlickerDS(Dataset):
             transform = transforms.Compose([
                             transforms.ToTensor(),
                             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5],), 
-                            transforms.Resize((self.img_size, self.img_size), antialias=True)
+                            transforms.Resize((self.img_size, self.img_size), antialias=True),
+                            transforms.RandomHorizontalFlip(p=0.5),
+                            #transforms.RandomRotation(degrees=30)
                         ])
         self.transform = transform
 

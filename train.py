@@ -76,7 +76,7 @@ def train(model, optimizer, criterion , scaler, dloader, tokenizer):
     return avg_loss/len(dloader)       
 
 @torch.no_grad()
-def evaluate(model, criterion, dloader, tokenizer, use_inference=False):
+def evaluate(model, criterion, dloader, tokenizer):
     model.eval()
     avg_loss = 0
     avg_bleu = 0
@@ -106,12 +106,14 @@ def evaluate(model, criterion, dloader, tokenizer, use_inference=False):
     return avg_loss/len(dloader), avg_bleu/len(dloader)
 
 @torch.no_grad()
-def evaluate_iference(model, dloader, tokenizer):
+def evaluate_iference(model, dloader, tokenizer, n_examples = 1001):
     model.eval()
     avg_bleu = 0
     padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
 
-    for img_batch, descr_batch in tqdm(dloader, leave=False):
+    for i ,(img_batch, descr_batch) in enumerate(tqdm(dloader, leave=False)):
+        if i > (n_examples /config.BATCH_SIZE):
+            continue
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
         
@@ -192,7 +194,7 @@ def run_train_one_batch(local_epochs, model_type='ICT'):
 
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
-    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
+    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
     
     
 
@@ -248,10 +250,11 @@ def run(model_type='ICT'):
 
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
-    warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
+    #warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)
+    #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx)
+    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
     
     if config.LOAD_MODEL:
         utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME, )
@@ -264,6 +267,7 @@ def run(model_type='ICT'):
 
     best_test_loss = float('+inf')
     test_loss, test_bleu, test_inference_bleu = None, None, None
+    train_infer_bleu = None
     best_test_inference_bleu = 0
     epo_loss = 0
     #train
@@ -271,9 +275,11 @@ def run(model_type='ICT'):
         os.system('cls')
         print(f'epo {epo+1}/{config.EPOCHS}')
         print(f'train avg loss: {epo_loss}')
+        print(f'train inferene bleu: {train_infer_bleu}')
         print(f'epo: {epo}; test_loss: {test_loss}; test_bleu: {test_bleu}')
-        print(f'inferene bleu: {test_inference_bleu}')
+        print(f'test inferene bleu: {test_inference_bleu}')
         print_elapsed_time(elapsed_time=datetime.now() - epo_start_time)
+        print('LR:', optimizer.param_groups[0]['lr'])
 
         utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
         utils.show_descr(model=ict_model, dl=test_dl, tokenizer=tokenizer, title='test sentence comparison')
@@ -286,16 +292,18 @@ def run(model_type='ICT'):
                         dloader=train_dl, 
                         tokenizer=tokenizer
                         )
-        lr_scheduler.step()
-        test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl, tokenizer=tokenizer, use_inference=True)
+        #lr_scheduler.step()
+        test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl, tokenizer=tokenizer)
         
 
-        if True or epo % 2:
+        if epo % 2:
             test_inference_bleu = evaluate_iference(model=ict_model, dloader=test_dl, tokenizer=tokenizer)
+            train_infer_bleu = evaluate_iference(model=ict_model, dloader=train_dl, tokenizer=tokenizer)
             if config.SAVE_MODEL and (test_inference_bleu > 0) and (test_inference_bleu > best_test_inference_bleu):
                 utils.save_model(ict_model, optimizer, model_name+'_BLEU')
             if config.WRITE_LOGS:
                 writer.add_scalar('Metrics/bleu_test_inference', test_inference_bleu, epo)
+                writer.add_scalar('Metrics/bleu_train_inference', train_infer_bleu, epo)
         if config.WRITE_LOGS:
             writer.add_scalar('Loss/train', epo_loss, epo)
             writer.add_scalar('Loss/test', test_loss, epo)
@@ -317,7 +325,7 @@ if __name__ == '__main__':
     #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
 
 
-
+  
 #dubug info
 '''
 print(type(out))

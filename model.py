@@ -86,7 +86,8 @@ class ICTrans(nn.Module):
         '''
         y = self.prepare_y(y)
         x = self.prepare_x(x)
-        tgt_mask = get_tgt_mask(y.shape[0])
+        #tgt_mask = get_tgt_mask(y.shape[0])
+        tgt_mask = self.transformer.generate_square_subsequent_mask(y.shape[0])
         t_out = self.transformer(src= x, tgt=y, tgt_mask = tgt_mask)
         probs = self.lin(t_out.permute(1, 0, 2)) #permute: (seq_len, bs, emb_size) -> (bs, seq_len, emb_size))
         return probs
