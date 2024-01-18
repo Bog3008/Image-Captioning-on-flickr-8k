@@ -7,20 +7,21 @@ LOAD_MODEL = False
 LOAD_MODEL_NAME = 'inster name'
 WRITE_LOGS = True
 SAVE_MODEL = False
-BATCH_SIZE = 16#64#64
+BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
 EPOCHS = 300
 WARMUP_STEPS = 10
 
-DROPOUT = 0.1
+DROPOUT = 0#0.1
 CLIP_VALUE = 0.1
 
 IMG_SIZE = 224
-PATCH_SIZE = 64
+PATCH_SIZE = 64#32#128#64
+# 64 ~ 63; 32~68(on 2nd launch); 16~64; 126 ~70(not stable)
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
 
 
-EMBED_SIZE = 64#256
-N_HEADS = 4
+EMBED_SIZE = 512#256#128#64
+N_HEADS = 8
 N_TRANS_LAYERS = 6
 MAX_SEQ_LEN = 20
 

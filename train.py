@@ -153,11 +153,11 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         #tokens = torch.argmax(out, dim=2)
         avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
 
-        candidates = tokenizer.decode_batch(tokens)
-        reference = tokenizer.decode_batch(descr_batch)
-        reference_p = [[single_ref] for single_ref in reference]
-        print('candidates', ' '.join(candidates[0]))
-        print('reference', ' '.join(reference[0]))
+        #candidates = tokenizer.decode_batch(tokens)
+        #reference = tokenizer.decode_batch(descr_batch)
+        #reference_p = [[single_ref] for single_ref in reference]
+        #print('candidates', ' '.join(candidates[0]))
+        #print('reference', ' '.join(reference[0]))
         '''for single_cand, singl_ref in zip(candidates, reference):
             print('candidates', ' '.join(single_cand))
             print('reference', ' '.join(singl_ref))'''
@@ -321,8 +321,8 @@ def run(model_type='ICT'):
 if __name__ == '__main__':
     print('@'*50)
     print('@'*50)
-    run(model_type='CT')
-    #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
+    #run(model_type='ICT')
+    run_train_one_batch(local_epochs=100, model_type='CT') # added inference bleu
 
 
   
