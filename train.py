@@ -310,7 +310,7 @@ def run(model_type='ICT'):
             writer.add_scalar('Metrics/bleu_test_forward', test_bleu, epo)
 
     
-        if config.SAVE_MODEL and test_loss < best_test_loss:
+        if config.SAVE_MODEL and ((epo % 10 == 0) or ((epo+1) == config.BATCH_SIZE)):#test_loss < best_test_loss:
             utils.save_model(ict_model, optimizer, model_name)
     
     print_elapsed_time(elapsed_time=datetime.now() - start_time, text='model training time')
@@ -321,7 +321,7 @@ def run(model_type='ICT'):
 if __name__ == '__main__':
     print('@'*50)
     print('@'*50)
-    run(model_type='ICT')
+    run(model_type='CT')
     #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
 
 
