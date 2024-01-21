@@ -1,12 +1,15 @@
 import os
 import torch
 import torch.optim as optim
+
+import random
+import numpy as np
 #
 
 LOAD_MODEL = False
 LOAD_MODEL_NAME = 'inster name'
 WRITE_LOGS = True
-SAVE_MODEL = False
+SAVE_MODEL = True
 BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
 EPOCHS = 300
 WARMUP_STEPS = 10
@@ -15,20 +18,31 @@ DROPOUT = 0#0.1
 CLIP_VALUE = 0.1
 
 IMG_SIZE = 224
-PATCH_SIZE = 64#32#128#64
+PATCH_SIZE = 64#16#64#32#128#64
 # 64 ~ 63; 32~68(on 2nd launch); 16~64; 126 ~70(not stable)
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
 
 
-EMBED_SIZE = 512#256#128#64
-N_HEADS = 8
-N_TRANS_LAYERS = 6
+EMBED_SIZE = 512#512#1024#768#512#256#128#64
+N_HEADS = 16
+N_TRANS_LAYERS = 2
 MAX_SEQ_LEN = 20
 
 NUM_WORKERS = 6
 DEVICE = 'cuda'#if torch.cuda.is_available() else 'cpu'
+
+seed=42
+os.environ["PYTHONHASHSEED"] = str(seed)
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
 OPTIMIZER = optim.AdamW
-LR = 8e-5#1e-4 #5e-5 for ICT
+LR = 3e-5#8e-5#5e-5 for ICT
 
 
 # FOLDERS

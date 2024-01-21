@@ -109,11 +109,14 @@ def evaluate(model, criterion, dloader, tokenizer):
 def evaluate_iference(model, dloader, tokenizer, n_examples = 1001):
     model.eval()
     avg_bleu = 0
-    padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
+    i_batches_passed=1
+    #padd_tensor = torch.full((config.BATCH_SIZE, 1), tokenizer.pad_idx).to(config.DEVICE)
 
     for i ,(img_batch, descr_batch) in enumerate(tqdm(dloader, leave=False)):
         if i > (n_examples /config.BATCH_SIZE):
+            # to not break dloader. if we do break -> dloader on the next iter wont start from begining
             continue
+        i_batches_passed = i
         img_batch=img_batch.to(config.DEVICE)
         descr_batch=descr_batch.to(config.DEVICE)
         
@@ -123,7 +126,7 @@ def evaluate_iference(model, dloader, tokenizer, n_examples = 1001):
             avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
             #descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
             
-    return avg_bleu/len(dloader)
+    return avg_bleu/i_batches_passed
 
 
 
@@ -250,7 +253,7 @@ def run(model_type='ICT'):
 
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
-    #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
+    #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.17)
     #warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)
     #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
 
@@ -270,6 +273,7 @@ def run(model_type='ICT'):
     train_infer_bleu = None
     best_test_inference_bleu = 0
     epo_loss = 0
+    save_cool_down = 0
     #train
     for epo in range(config.EPOCHS):
         os.system('cls')
@@ -312,6 +316,12 @@ def run(model_type='ICT'):
     
         if config.SAVE_MODEL and ((epo % 10 == 0) or ((epo+1) == config.BATCH_SIZE)):#test_loss < best_test_loss:
             utils.save_model(ict_model, optimizer, model_name)
+        
+        if config.SAVE_MODEL and train_infer_bleu >= 0.83:
+            if save_cool_down == 0:
+                utils.save_model(ict_model, optimizer, model_name+'_083_bleu')
+                save_cool_down = 8
+            save_cool_down -= 1
     
     print_elapsed_time(elapsed_time=datetime.now() - start_time, text='model training time')
 
@@ -321,8 +331,8 @@ def run(model_type='ICT'):
 if __name__ == '__main__':
     print('@'*50)
     print('@'*50)
-    #run(model_type='ICT')
-    run_train_one_batch(local_epochs=100, model_type='CT') # added inference bleu
+    run(model_type='ICT')
+    #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
 
 
   
