@@ -39,12 +39,14 @@ def get_img2discr(path:str, only_lowwer=True)->dict:
 
 class MyTokenizer:
     def __init__(self, img2descr, max_seq_len = config.MAX_SEQ_LEN, bos = '<bos>', eos = '<eos>', unk = '<unk>', pad = '<pad>'):
-        unique_words = []
+        words = []
         for sentences in img2descr.values():
             for sentence in sentences: 
-                unique_words.extend(sentence.split())
-        self.unique_words = list(set(unique_words))
+                words.extend(sentence.split())
+        self.unique_words = list(set(words))
         self.unique_words += [bos, eos, unk, pad]
+        self.unique_words.sort() # This line cost me two days and half of my nerve cells, when I couldn't figure out why there were different tokens every time I started the program
+        #I thought that set will be always return words in the sane order AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
         self.word2token = {}
         self.token2word = {}
         for i, word in enumerate(self.unique_words):
@@ -79,6 +81,7 @@ class MyTokenizer:
     def decode(self, tokens):
         words = []
         for token in tokens:
+            #print(token, int(token))
             words.append(self.token2word[int(token)])
             if token == self.eos_idx:
                 break
@@ -177,8 +180,8 @@ def test_dataset():
                    img_names=config.TEST_IMG_NAMES,
                    img_size = 256,
                    tokenizer=tokenizer)
-    img, descr = ds[random.randint(0, 5)]
-    #show_single_img(img)
+    img, descr = ds[5]
+    show_single_img(img)
     print(descr)
     print(tokenizer.decode(descr)) #for 1 descr per image
     print(tokenizer.beauty_decode(descr))
@@ -192,8 +195,17 @@ def test_tokenizer():
         print(f'source len:{len(word.split())}, enc len:{len(t_w)}')
         print(f'source :{word.split()}, enc&dec :{tokenizer.decode(t_w)}')
 
+def test_rand():
+    img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
+    tokenizer = MyTokenizer(img2descr_lemma)
+    a=[tokenizer.unk_idx, tokenizer.bos_idx, tokenizer.eos_idx, tokenizer.pad_idx]
+    print(a)
+    b = tokenizer.decode(torch.tensor([6778, 4734, 6537, 3737, 2797, 6779, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781, 6781]))
+    print(b)
+
 if __name__ == '__main__':
     print('-'*40)
     test_dataset()
     #test_tokenizer()
+    #test_rand()
         

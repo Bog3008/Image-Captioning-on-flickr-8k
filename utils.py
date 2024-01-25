@@ -71,6 +71,7 @@ def test_onehot():
     print(out.shape)
 
 def save_model(model, optimizer, filename):
+    print('saving model...')
     filename = os.path.join(config.SAVED_MODELS_DIR, filename)
     states = {
         "model": model.state_dict(),
@@ -78,10 +79,8 @@ def save_model(model, optimizer, filename):
     }
     torch.save(states, filename)
 
-def load_model(model, optimizer, file_name):
-    filename = os.path.join(config.SAVED_MODELS_DIR, filename)
-
-    checkpoint = torch.load(file_name, map_location=config.DEVICE)
+def load_model(model, optimizer, filename):
+    checkpoint = torch.load(filename, map_location=config.DEVICE)
     model.load_state_dict(checkpoint["model"])
     optimizer.load_state_dict(checkpoint["optimizer"])
 
@@ -89,6 +88,7 @@ def load_model(model, optimizer, file_name):
     for param_group in optimizer.param_groups:
         param_group["lr"] = config.LR
 
+        
 def make_model_name():
     current_date_and_time = datetime.now()
     formatted_string = current_date_and_time.strftime('%m_%d_%H')

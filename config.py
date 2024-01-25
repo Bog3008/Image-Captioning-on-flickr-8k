@@ -6,12 +6,14 @@ import random
 import numpy as np
 #
 
-LOAD_MODEL = False
-LOAD_MODEL_NAME = 'inster name'
+LOAD_MODEL = True
+LOAD_MODEL_NAME = r'01_25_15bs32_lr3e-05_083_bleu'
+# for convinience it is here but I make a full path for this vsriable below
+#it is assumed that  file is in the SAVED_MODELS_DIR
 WRITE_LOGS = True
-SAVE_MODEL = True
+SAVE_MODEL =  True
 BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
-EPOCHS = 300
+EPOCHS = 300#40#300
 WARMUP_STEPS = 10
 
 DROPOUT = 0#0.1
@@ -42,7 +44,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 OPTIMIZER = optim.AdamW
-LR = 3e-5#8e-5#5e-5 for ICT
+LR = 3e-6#8e-5#5e-5 for ICT
 
 
 # FOLDERS
@@ -72,3 +74,4 @@ img_folder_path='data\Flickr8k_Dataset\Flicker8k_Dataset'
 
 MAIN_TB_DIR = os.path.join(current_directory, 'tb_logs')
 SAVED_MODELS_DIR = os.path.join(current_directory,'saved_models')
+LOAD_MODEL_NAME = os.path.join(SAVED_MODELS_DIR, LOAD_MODEL_NAME)

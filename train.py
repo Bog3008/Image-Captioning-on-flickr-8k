@@ -155,7 +155,6 @@ def train_one_batch(model, optimizer, criterion , scaler, batch, tokenizer):
         tokens = model.inference(img_batch) #<>
         #tokens = torch.argmax(out, dim=2)
         avg_bleu += utils.calc_bleu(tokens, descr_batch, tokenizer)
-
         #candidates = tokenizer.decode_batch(tokens)
         #reference = tokenizer.decode_batch(descr_batch)
         #reference_p = [[single_ref] for single_ref in reference]
@@ -222,7 +221,6 @@ def run_train_one_batch(local_epochs, model_type='ICT'):
     utils.img_and_descr(ict_model, test_dl, tokenizer, batch=batch)
     print('Losses:', losses)
     print('Bleu', bleu_scores)
-
 def run(model_type='ICT'):
     model_name = utils.make_model_name()
     #vocab and tokenizer
@@ -260,7 +258,14 @@ def run(model_type='ICT'):
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
     
     if config.LOAD_MODEL:
-        utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME, )
+        #filename = os.path.join(config.SAVED_MODELS_DIR, filename)
+        print('loading model...')
+        utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME)
+        #utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
+        #train_infer_bleu = evaluate_iference( model=ict_model, dloader=train_dl, tokenizer=tokenizer)
+        #print('train_infer_bleu', train_infer_bleu)
+        #return
+
     #logs
     if config.WRITE_LOGS:
         tb_log_dir = os.path.join(config.MAIN_TB_DIR, utils.get_time())
@@ -303,8 +308,8 @@ def run(model_type='ICT'):
         if epo % 2:
             test_inference_bleu = evaluate_iference(model=ict_model, dloader=test_dl, tokenizer=tokenizer)
             train_infer_bleu = evaluate_iference(model=ict_model, dloader=train_dl, tokenizer=tokenizer)
-            if config.SAVE_MODEL and (test_inference_bleu > 0) and (test_inference_bleu > best_test_inference_bleu):
-                utils.save_model(ict_model, optimizer, model_name+'_BLEU')
+            #if config.SAVE_MODEL and (test_inference_bleu > 0) and (test_inference_bleu > best_test_inference_bleu):
+            #    utils.save_model(ict_model, optimizer, model_name+'_BLEU')
             if config.WRITE_LOGS:
                 writer.add_scalar('Metrics/bleu_test_inference', test_inference_bleu, epo)
                 writer.add_scalar('Metrics/bleu_train_inference', train_infer_bleu, epo)
@@ -316,16 +321,18 @@ def run(model_type='ICT'):
     
         if config.SAVE_MODEL and ((epo % 10 == 0) or ((epo+1) == config.BATCH_SIZE)):#test_loss < best_test_loss:
             utils.save_model(ict_model, optimizer, model_name)
-        
-        if config.SAVE_MODEL and train_infer_bleu >= 0.83:
-            if save_cool_down == 0:
-                utils.save_model(ict_model, optimizer, model_name+'_083_bleu')
-                save_cool_down = 8
-            save_cool_down -= 1
+        try:
+            if config.SAVE_MODEL and train_infer_bleu >= 0.83:
+                if save_cool_down == 0:
+                    utils.save_model(ict_model, optimizer, model_name+'_083_bleu')
+                    save_cool_down = 8
+                save_cool_down -= 1
+        except:
+            pass
     
     print_elapsed_time(elapsed_time=datetime.now() - start_time, text='model training time')
 
-    utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=4)
+    utils.img_and_descr(ict_model, train_dl, tokenizer, n_imgs=4)
     utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=4)
 
 if __name__ == '__main__':
