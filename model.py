@@ -68,8 +68,8 @@ class ICTrans(nn.Module):
         self.transformer = nn.Transformer(
             d_model=embedding_size,
             nhead=num_heads,
-            num_encoder_layers=num_layers,
-            num_decoder_layers=num_layers,
+            num_encoder_layers=num_layers, #12
+            num_decoder_layers=num_layers, #4
             dropout=dropout,
             batch_first=False
         )
@@ -100,6 +100,12 @@ class ICTrans(nn.Module):
         xpn, ypn, bs, ch, xps, yps = x.shape
         x = x.reshape(xpn, ypn, bs, ch*xps*yps).view(xpn * ypn, bs, ch*xps*yps) 
         pos = torch.arange(0, xpn**2, dtype=torch.long, device=config.DEVICE)
+
+        '''print('pos', pos)
+        print('xpos', self.patch_xpos_embed(pos))
+        print('pos embed', self.patch_xpos_embed(pos).shape)
+        print('x.shape', x.shape)
+        print('img embed', self.img_embed(x).shape)'''
         x = self.img_embed(x) + self.patch_xpos_embed(pos).unsqueeze(dim=1)# + self.patch_ypos_embed(pos)
         return x
     def prepare_y(self, y):
@@ -428,4 +434,4 @@ if __name__ == '__main__':
 
     #dim_test()
     #ict_test('CT')
-    itc_inference_test('CT')
+    itc_inference_test('ICT')

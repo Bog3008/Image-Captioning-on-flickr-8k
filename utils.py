@@ -115,7 +115,7 @@ def img_and_descr(model, dataloader, tokenizer, batch=None, n_imgs = 2, title=No
         #
         img = img[0]*std + mean
         img = img.cpu()
-        true_descr = 'GT:' + ' '.join(tokenizer.decode(true_descr))
+        true_descr = '1st GT:' + ' '.join(tokenizer.decode(true_descr[0]))
 
         final_descr = model_descr + '\n' + true_descr
         axs[i].imshow(img.permute(1, 2, 0))
@@ -128,9 +128,18 @@ def img_and_descr(model, dataloader, tokenizer, batch=None, n_imgs = 2, title=No
 
 def calc_bleu(tokens, descr_batch, tokenizer):
         candidates = tokenizer.decode_batch(tokens)
-        reference = tokenizer.decode_batch(descr_batch)
-        reference = [[single_ref] for single_ref in reference]
-        return bleu_score(candidate_corpus=candidates, references_corpus=reference)
+        all_references = []
+        #print(descr_batch.shape)
+        #descr_batch = descr_batch.permute(1, 0, 2)
+        #print(descr_batch.shape)
+        for single_batch in descr_batch: # batch, example to single image, seq_len ->example to single image 1st
+            reference = tokenizer.decode_batch(single_batch)
+            #reference = [[single_ref] for single_ref in reference]
+            all_references.append(reference)
+        #print(candidates)
+        #print(all_references[0])
+        #print(len(all_references), len(candidates))
+        return bleu_score(candidate_corpus=candidates, references_corpus=all_references)
 
 class warmup_lr_sheduler:
     def __init__(self, total_epochs, warmup_steps) -> None:
@@ -154,7 +163,7 @@ def show_descr(model, dl, tokenizer, title=None):
         #  inference must be above<>
         tokens = model.inference(img)
         model_descr = 'model:' + ' '.join(tokenizer.decode(tokens[0]))
-        true_descr = 'GT:' + ' '.join(tokenizer.decode(true_descr))
+        true_descr = '1st GT:' + ' '.join(tokenizer.decode(true_descr[0]))
         print()
         if title is not None:
             print(title)

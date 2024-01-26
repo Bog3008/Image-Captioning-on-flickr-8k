@@ -55,12 +55,14 @@ def train(model, optimizer, criterion , scaler, dloader, tokenizer):
         descr_batch=descr_batch.to(config.DEVICE)
         
         with torch.cuda.amp.autocast():
-            out = model(img_batch, descr_batch)
+            out = model(img_batch, descr_batch[:, torch.randint(low=0, high=5, size=(1,))].squeeze(1))
             bs, seq_len, n_clas = out.shape
             padd_tensor = torch.full((bs, 1), tokenizer.pad_idx).to(config.DEVICE)
-            descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
-            loss = criterion(out.view(seq_len*bs, n_clas), 
-                             descr_batch.view(seq_len*bs))
+            loss = 0
+            for single_descr in descr_batch.permute(1, 0, 2):
+                single_descr = torch.cat((single_descr[:,1:], padd_tensor), dim=1)
+                loss += criterion(out.view(seq_len*bs, n_clas), 
+                                single_descr.view(seq_len*bs))
             
             optimizer.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
@@ -87,14 +89,17 @@ def evaluate(model, criterion, dloader, tokenizer):
         descr_batch=descr_batch.to(config.DEVICE)
         
         with torch.cuda.amp.autocast():
-            
-            out = model(img_batch, descr_batch)
+            #print(descr_batch.shape)#<>
+            #print(descr_batch[:, torch.randint(low=0, high=5, size=(1,))].shape)
+            out = model(img_batch, descr_batch[:, torch.randint(low=0, high=5, size=(1,))].squeeze(1))
             bs, seq_len, n_clas = out.shape
             padd_tensor = torch.full((bs, 1), tokenizer.pad_idx).to(config.DEVICE)
-            descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
-
-            loss = criterion(out.view(seq_len*bs, n_clas), 
-                             descr_batch.view(seq_len*bs))
+            loss = 0
+            for single_descr in descr_batch.permute(1, 0, 2):
+                #print('sd', single_descr.shape)
+                single_descr = torch.cat((single_descr[:,1:], padd_tensor), dim=1)
+                loss += criterion(out.view(seq_len*bs, n_clas), 
+                                single_descr.view(seq_len*bs))
             avg_loss += loss
             #calc forward bleu
             tokens = torch.argmax(out, dim=2)
@@ -248,7 +253,7 @@ def run(model_type='ICT'):
         ict_model = RTnet(**model_params)
     if model_type == 'CT':
         ict_model = CTnet(**model_params)
-
+        
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.17)
@@ -261,10 +266,13 @@ def run(model_type='ICT'):
         #filename = os.path.join(config.SAVED_MODELS_DIR, filename)
         print('loading model...')
         utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME)
-        #utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
+        utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
         #train_infer_bleu = evaluate_iference( model=ict_model, dloader=train_dl, tokenizer=tokenizer)
         #print('train_infer_bleu', train_infer_bleu)
-        #return
+        #utils.img_and_descr(ict_model, train_dl, tokenizer, n_imgs=3)
+        test_loss, test_bleu = evaluate(model=ict_model, criterion=criterion, dloader=test_dl, tokenizer=tokenizer)
+        print('loss bleu', test_loss, test_bleu)
+        return
 
     #logs
     if config.WRITE_LOGS:
@@ -342,7 +350,7 @@ if __name__ == '__main__':
     #run_train_one_batch(local_epochs=100, model_type='ICT') # added inference bleu
 
 
-  
+# ICT - params
 #dubug info
 '''
 print(type(out))

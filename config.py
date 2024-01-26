@@ -6,12 +6,12 @@ import random
 import numpy as np
 #
 
-LOAD_MODEL = True
-LOAD_MODEL_NAME = r'01_25_15bs32_lr3e-05_083_bleu'
+LOAD_MODEL = False
+LOAD_MODEL_NAME = r'01_25_17bs32_lr3e-06_091'
 # for convinience it is here but I make a full path for this vsriable below
 #it is assumed that  file is in the SAVED_MODELS_DIR
-WRITE_LOGS = True
-SAVE_MODEL =  True
+WRITE_LOGS = False
+SAVE_MODEL =  False
 BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
 EPOCHS = 300#40#300
 WARMUP_STEPS = 10
@@ -44,7 +44,7 @@ torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
 OPTIMIZER = optim.AdamW
-LR = 3e-6#8e-5#5e-5 for ICT
+LR = 3e-5#8e-5#5e-5 for ICT
 
 
 # FOLDERS

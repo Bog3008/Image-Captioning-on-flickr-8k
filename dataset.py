@@ -136,7 +136,9 @@ def tokenize_img2descr(img2descr, tokenizer):
     img2tok_list = {}
     for img_name, descr_list in img2descr.items():
         #descr_list[0] - i use only one description for each image. use different disription cause too many optimization issues
-        img2tok_list[img_name] = tokenizer.encode(descr_list[0])
+        #print([tokenizer.encode(single_descr) for single_descr in descr_list])
+        img2tok_list[img_name] = torch.stack([tokenizer.encode(single_descr) for single_descr in descr_list])
+        #raise RuntimeError('test')
 
     return img2tok_list
 
@@ -183,8 +185,9 @@ def test_dataset():
     img, descr = ds[5]
     show_single_img(img)
     print(descr)
-    print(tokenizer.decode(descr)) #for 1 descr per image
-    print(tokenizer.beauty_decode(descr))
+    for single_descr in descr:
+        print(tokenizer.decode(single_descr)) #for 1 descr per image
+        print(tokenizer.beauty_decode(single_descr))
     #print(*list(map(tokenizer.decode, descr)),sep='\n' ) - for 5 descr per image
 
 def test_tokenizer():
