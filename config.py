@@ -10,13 +10,13 @@ LOAD_MODEL = False
 LOAD_MODEL_NAME = r'01_25_17bs32_lr3e-06_091'
 # for convinience it is here but I make a full path for this vsriable below
 #it is assumed that  file is in the SAVED_MODELS_DIR
-WRITE_LOGS = False
+WRITE_LOGS = True
 SAVE_MODEL =  False
 BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
 EPOCHS = 300#40#300
 WARMUP_STEPS = 10
 
-DROPOUT = 0#0.1
+DROPOUT = 0.1
 CLIP_VALUE = 0.1
 
 IMG_SIZE = 224
