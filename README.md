@@ -1,4 +1,4 @@
-# My Image Captioning traind on Flickr 8k Dataset
+# My Image Captioning trained on Flickr 8k Dataset
 
 I took flicker8k [dataset](https://www.kaggle.com/datasets/jainamshah17/flicker8k-image-captioning)  
 I used the standard split on train and test suggested by the authors
