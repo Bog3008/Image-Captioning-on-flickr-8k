@@ -221,6 +221,7 @@ def run_train_one_batch(local_epochs, model_type='ICT'):
     utils.img_and_descr(ict_model, test_dl, tokenizer, batch=batch)
     print('Losses:', losses)
     print('Bleu', bleu_scores)
+    
 def run(model_type='ICT'):
     model_name = utils.make_model_name()
     #vocab and tokenizer
@@ -261,10 +262,10 @@ def run(model_type='ICT'):
         #filename = os.path.join(config.SAVED_MODELS_DIR, filename)
         print('loading model...')
         utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME)
-        #utils.show_descr(model=ict_model, dl=train_dl, tokenizer=tokenizer, title='train sentence comparison')
-        #train_infer_bleu = evaluate_iference( model=ict_model, dloader=train_dl, tokenizer=tokenizer)
-        #print('train_infer_bleu', train_infer_bleu)
-        #return
+        utils.show_descr(model=ict_model, dl=test_dl, tokenizer=tokenizer, title='train sentence comparison')
+        train_infer_bleu = evaluate_iference( model=ict_model, dloader=test_dl, tokenizer=tokenizer)
+        print('train_infer_bleu', train_infer_bleu)
+        return
 
     #logs
     if config.WRITE_LOGS:

@@ -9,6 +9,7 @@ import math
 import config
 from datetime import datetime
 from torchtext.data.metrics import bleu_score
+from torcheval.metrics.functional.text import bleu
 
 # Define function to split image into patches
 # config.PATCH_SIZE - x and y size of patch; config.PATCH_STRIDE - step in pixels  
@@ -126,12 +127,20 @@ def img_and_descr(model, dataloader, tokenizer, batch=None, n_imgs = 2, title=No
         plt.title(title)
     plt.show()
 
-def calc_bleu(tokens, descr_batch, tokenizer):
+def calc_bleu(tokens, descr_batch, tokenizer, bleu_type=None):
         candidates = tokenizer.decode_batch(tokens)
         reference = tokenizer.decode_batch(descr_batch)
         reference = [[single_ref] for single_ref in reference]
-        return bleu_score(candidate_corpus=candidates, references_corpus=reference)
-
+        if bleu_type is None:
+            return bleu_score(candidate_corpus=candidates, references_corpus=reference)
+        else:
+            if bleu_type not in [1, 2, 3, 4]:
+                raise RuntimeError('Incorrect bleu number. It must be >=1 and <=4')
+            weights = [0]*bleu_type
+            weights[bleu_type-1] = 1
+            bs = bleu_score(candidate_corpus=candidates, references_corpus=reference, max_n=bleu_type, weights=weights)
+            return bs
+    
 class warmup_lr_sheduler:
     def __init__(self, total_epochs, warmup_steps) -> None:
         self.total_epochs = total_epochs
