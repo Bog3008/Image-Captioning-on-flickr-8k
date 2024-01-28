@@ -1,14 +1,13 @@
 # My Image Captioning traind on Flickr 8k Dataset
-![logo](images/main_pic.png)
 
-[dataset link](https://www.kaggle.com/datasets/jainamshah17/flicker8k-image-captioning)  
+I took flicker8k [dataset](https://www.kaggle.com/datasets/jainamshah17/flicker8k-image-captioning)  
 I used the standard split on train and test suggested by the authors
 
 ## Examples  
 Train examples:  
 ![train1](images/train1.png) ![train2](images/train2.png) ![train3](images/train3.png)  
 Test examples:  
-![test1](images/test1.png) ![test2](images/test2.png) ![test3](images/test3.png)
+![test1](images/test1.png) ![test2](images/test2.png) ![test3](images/test3.png)  
 *GT - ground truth - 1st image description
 
 ## Model 
