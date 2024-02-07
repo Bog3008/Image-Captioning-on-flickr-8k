@@ -2,3 +2,4 @@ data
 __pycache__
 tb_logs
 saved_models
+lightning_logs

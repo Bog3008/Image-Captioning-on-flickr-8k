@@ -5,6 +5,8 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torchtext.data.metrics import bleu_score
 from torch.utils.tensorboard import SummaryWriter
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 #import torch.nn.functional as F
 #from dataset import *
 import math
@@ -15,7 +17,7 @@ from tqdm import tqdm
 import config
 import utils
 from utils import make_patches, calc_num_patches
-from dataset import FlickerDS, MyTokenizer, get_img2discr
+from dataset import FlickerDM, FlickerDS, MyTokenizer, get_img2discr
 from model import ICTrans, RTnet, CTnet
 
 def get_train_test_dl(img2descr_lemma, tokenizer, shuffle_train=True, shuffle_test=True):
@@ -186,7 +188,8 @@ def run_train_one_batch(local_epochs, model_type='ICT'):
                "vocab_size": vocab_size,
                "bos_idx": tokenizer.bos_idx,
                "eos_idx": tokenizer.eos_idx,
-               "dropout": config.DROPOUT}
+               "dropout": config.DROPOUT,
+               "tokenizer":tokenizer}
     if model_type == 'ICT':
         ict_model = ICTrans(**model_params)
     if model_type == 'RT':
@@ -197,8 +200,6 @@ def run_train_one_batch(local_epochs, model_type='ICT'):
     ict_model = ict_model.to(config.DEVICE)
     optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
     criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
-    
-    
 
     batch = next(iter(test_dl))
 
@@ -229,9 +230,6 @@ def run(model_type='ICT'):
     tokenizer = MyTokenizer(img2descr_lemma)
     vocab_size = len(tokenizer.get_unique_words())
 
-    #dataloaders
-    train_dl, test_dl = get_train_test_dl(img2descr_lemma, tokenizer)
-    
     #model & optim
     scaler = torch.cuda.amp.GradScaler()
 
@@ -242,7 +240,8 @@ def run(model_type='ICT'):
                "vocab_size": vocab_size,
                "bos_idx": tokenizer.bos_idx,
                "eos_idx": tokenizer.eos_idx,
-               "dropout": config.DROPOUT}
+               "dropout": config.DROPOUT,
+               "tokenizer":tokenizer}
     if model_type == 'ICT':
         ict_model = ICTrans(**model_params)
     if model_type == 'RT':
@@ -251,21 +250,40 @@ def run(model_type='ICT'):
         ict_model = CTnet(**model_params)
 
     ict_model = ict_model.to(config.DEVICE)
-    optimizer = config.OPTIMIZER(ict_model.parameters(), lr = config.LR)
+    
     #lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.17)
     #warmaper = utils.warmup_lr_sheduler(total_epochs=config.BATCH_SIZE, warmup_steps=config.WARMUP_STEPS)
     #lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, warmaper)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
     
     if config.LOAD_MODEL:
-        #filename = os.path.join(config.SAVED_MODELS_DIR, filename)
-        print('loading model...')
-        utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME)
-        utils.show_descr(model=ict_model, dl=test_dl, tokenizer=tokenizer, title='train sentence comparison')
-        train_infer_bleu = evaluate_iference( model=ict_model, dloader=test_dl, tokenizer=tokenizer)
-        print('train_infer_bleu', train_infer_bleu)
-        return
+        ict_model.load_from_checkpoint(config.LOAD_MODEL_NAME)
+
+    callbacks = []
+
+    if config.SAVE_MODEL:
+        checkpoint_callback = ModelCheckpoint(
+        monitor='train_bleu',
+        dirpath='saved_models/',
+        filename='model-{epoch:02d}-{train_bleu:.2f}',
+        save_top_k=1,
+        mode='min',
+        every_n_train_steps = 10
+        )
+        callbacks.append(checkpoint_callback)
+
+    dm = FlickerDM(img2descr_lemma, tokenizer)
+    trainer = pl.Trainer(
+        accelerator="gpu", 
+        devices=1, 
+        min_epochs=1, 
+        max_epochs=100, 
+        precision=16,
+        callbacks=callbacks,
+        overfit_batches=1
+    )
+    trainer.fit(ict_model, dm)
+    return 
 
     #logs
     if config.WRITE_LOGS:

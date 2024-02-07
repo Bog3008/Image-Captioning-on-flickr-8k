@@ -1,3 +1,5 @@
+from typing import Any
+from pytorch_lightning.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -8,9 +10,10 @@ from torch.utils.data import DataLoader
 #from dataset import *
 import math
 import config
+import utils
 from utils import make_patches, calc_num_patches
 from dataset import FlickerDS, MyTokenizer, get_img2discr
-
+import pytorch_lightning as pl 
 #
 # I copied 'PositionalEncoding' it from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 class PositionalEncoding(nn.Module):
@@ -49,9 +52,10 @@ class PrintM(nn.Module):
         print(x.shape)
         return x
     
-class ICTrans(nn.Module):
-    def __init__(self, n_patches, embedding_size, num_heads, num_layers, vocab_size, bos_idx, eos_idx, dropout=0.1):
+class ICTrans(pl.LightningModule):
+    def __init__(self, n_patches, embedding_size, num_heads, num_layers, vocab_size, bos_idx, eos_idx, tokenizer,calc_bleu_every_n=3, dropout=0.1):
         super().__init__()
+
         self.bos_idx = bos_idx
         self.eos_idx = eos_idx
         # x(image patch) to embedding + positional encodeing
@@ -78,6 +82,17 @@ class ICTrans(nn.Module):
             nn.Linear(embedding_size, vocab_size*2),
             nn.LeakyReLU(0.2),
             nn.Linear(vocab_size*2, vocab_size))
+        
+        self.loss_fn = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_idx, size_average=True)
+        self.tokenizer = tokenizer
+
+        self.train_step_loss = []
+        self.train_step_bleu = []
+        self.calc_bleu_every_n = calc_bleu_every_n
+        self.bleu_step_counter = 0
+
+        self.val_step_loss = []
+        self.val_step_bleu = []
     
     def forward(self, x, y):
         '''
@@ -108,6 +123,77 @@ class ICTrans(nn.Module):
         y += self.pos_enc(y)
         return y
     
+    def _common_step(self, batch, batch_idx):
+        x, descr_batch = batch
+        out = self.forward(x, descr_batch)
+        bs, seq_len, n_clas = out.shape
+
+        padd_tensor = torch.full((bs, 1), self.tokenizer.pad_idx).to(config.DEVICE)   
+        descr_batch = torch.cat((descr_batch[:,1:], padd_tensor), dim=1)
+
+        loss = self.loss_fn(out.view(seq_len*bs, n_clas), 
+                            descr_batch.view(seq_len*bs))
+        return loss, out 
+
+    def training_step(self, batch, batch_idx):
+        self.train()
+
+        x, descr_batch = batch
+        loss, out = self._common_step(batch, batch_idx)
+        
+        self.train_step_loss.append(loss)
+
+        if self.bleu_step_counter % self.calc_bleu_every_n == 0:
+            self.eval()
+            tokens = self.inference(x)
+            step_bleu =  utils.calc_bleu(tokens, descr_batch, self.tokenizer)
+            self.train_step_bleu.append(step_bleu)
+            self.bleu_step_counter = 0
+        else:
+            self.bleu_step_counter += 1
+
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        #self.eval()
+        x, descr_batch = batch
+        loss, out = self._common_step(batch, batch_idx)
+        
+        self.val_step_loss.append(loss)
+
+        tokens = self.inference(x)
+        step_bleu =  utils.calc_bleu(tokens, descr_batch, self.tokenizer)
+        self.val_step_bleu.append(step_bleu)
+        
+    
+    def predict_step(self, batch, batch_idx):
+        x, y = batch
+        return self.inference(x)
+
+    def configure_optimizers(self):
+        return config.OPTIMIZER(self.parameters(), lr=config.LR)
+
+    def on_train_epoch_end(self):
+        mean_epoch_loss = torch.stack(self.train_step_loss).mean()
+        self.log('train_mean_epo_loss', mean_epoch_loss)
+
+        mean_epoch_bleu = sum(self.train_step_bleu)/len(self.train_step_bleu)
+        self.log('train_mean_epo_bleu', mean_epoch_bleu)
+
+        self.train_step_loss.clear()
+        self.train_step_bleu.clear()
+
+
+    def on_validation_epoch_end(self):
+        mean_epoch_loss = torch.stack(self.val_step_loss).mean()
+        self.log('train_mean_epo_loss', mean_epoch_loss)
+
+        mean_epoch_bleu = sum(self.train_step_bleu)/len(self.val_step_bleu)
+        self.log('train_mean_epo_bleu', mean_epoch_bleu)
+
+        self.val_step_loss.clear()
+        self.val_step_bleu.clear()
+
     def inference(self, x):
         '''
         x - image batch

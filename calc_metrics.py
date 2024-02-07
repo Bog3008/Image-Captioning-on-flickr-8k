@@ -80,9 +80,9 @@ def run(model_type='ICT'):
         print('loading model...')
         utils.load_model(ict_model, optimizer, config.LOAD_MODEL_NAME)
     
-    #utils.img_and_descr(ict_model, train_dl, tokenizer, n_imgs=3)
-    #utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=3)
-    #return
+    utils.img_and_descr(ict_model, train_dl, tokenizer, n_imgs=3)
+    utils.img_and_descr(ict_model, test_dl, tokenizer, n_imgs=3)
+    return
     os.system('cls')
     print("Total model parameters:",calc_param_num(ict_model))
     for dl, name in [(train_dl, 'Train'), (test_dl, 'Test')]:

@@ -7,7 +7,8 @@ from torchvision import transforms
 import matplotlib.pyplot as plt
 import random
 import config
-
+import pytorch_lightning as pl 
+from torch.utils.data import DataLoader
 def show_single_img(img):
     plt.figure(figsize=(12, 6))
 
@@ -171,6 +172,49 @@ class FlickerDS(Dataset):
         img = self.transform(Image.open(img_full_path).convert("RGB"))
         return img, decription_list
 
+class FlickerDM(pl.LightningDataModule):
+    def __init__(self, img2descr_lemma, tokenizer, transform=None):
+            super().__init__()
+            self.img2descr_lemma = img2descr_lemma
+            self.tokenizer = tokenizer
+
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage):
+        self.train_ds = FlickerDS(img_folder_path=config.IMG_FOLDER_PATH,
+                                    img2descr=self.img2descr_lemma,
+                                    img_names=config.TRAIN_IMG_NAMES,
+                                    img_size = config.IMG_SIZE,
+                                    tokenizer=self.tokenizer)
+        self.test_ds = FlickerDS(img_folder_path=config.IMG_FOLDER_PATH,
+                                    img2descr=self.img2descr_lemma,
+                                    img_names=config.TEST_IMG_NAMES,
+                                    img_size = config.IMG_SIZE,
+                                    tokenizer=self.tokenizer)
+        #self.val_ds
+
+    def train_dataloader(self):
+        return DataLoader(self.train_ds,
+                          batch_size= config.BATCH_SIZE, 
+                          shuffle=True, 
+                          #num_workers=config.NUM_WORKERS,
+                          pin_memory=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.test_ds,
+                          batch_size= config.BATCH_SIZE, 
+                          shuffle=False, 
+                          #num_workers=config.NUM_WORKERS,
+                          pin_memory=True)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_ds,
+                          batch_size= config.BATCH_SIZE, 
+                          shuffle=False, 
+                          #num_workers=config.NUM_WORKERS,
+                          pin_memory=True)
+    
 def test_dataset():
     img2descr_lemma = get_img2discr(config.DESCR_LEMMA_PATH)
     tokenizer = MyTokenizer(img2descr_lemma)
