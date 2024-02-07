@@ -77,7 +77,7 @@ def run(model_type='ICT'):
 
     logger = None
     if config.WRITE_LOGS:
-        logger = WandbLogger(log_model="all", project=config.PROJECT_NAME, name=model_name)
+        logger = WandbLogger(log_model="none", project=config.PROJECT_NAME, name=model_name)
 
     #logger = TensorBoardLogger("tb_logs", name="my_model")
 
@@ -86,7 +86,7 @@ def run(model_type='ICT'):
         accelerator="gpu", 
         devices=1, 
         min_epochs=1, 
-        max_epochs=100, 
+        max_epochs=4, 
         precision=16,
         callbacks=callbacks,
         logger=logger#,
