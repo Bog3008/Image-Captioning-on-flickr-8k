@@ -186,10 +186,10 @@ class ICTrans(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         mean_epoch_loss = torch.stack(self.val_step_loss).mean()
-        self.log('train_mean_epo_loss', mean_epoch_loss)
+        self.log('val_mean_epo_loss', mean_epoch_loss)
 
-        mean_epoch_bleu = sum(self.train_step_bleu)/len(self.val_step_bleu)
-        self.log('train_mean_epo_bleu', mean_epoch_bleu)
+        mean_epoch_bleu = sum(self.val_step_bleu)/len(self.val_step_bleu)
+        self.log('val_mean_epo_bleu', mean_epoch_bleu)
 
         self.val_step_loss.clear()
         self.val_step_bleu.clear()

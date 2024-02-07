@@ -6,12 +6,14 @@ import random
 import numpy as np
 #
 
+PROJECT_NAME = 'ImageCaptioning Fliker8k'
+
 LOAD_MODEL = False
 LOAD_MODEL_NAME = r'01_25_15bs32_lr3e-05_083_bleu'
 #r'01_25_17bs32_lr3e-06_091'
 # for convinience it is here but I make a full path for this vsriable below
 #it is assumed that  file is in the SAVED_MODELS_DIR
-WRITE_LOGS = True
+WRITE_LOGS = False
 SAVE_MODEL =  False#True
 BATCH_SIZE = 32#16 the bigger batch_size - the bigger must be embed_size
 EPOCHS = 300#40#300
@@ -26,7 +28,7 @@ PATCH_SIZE = 64#16#64#32#128#64
 PATCH_STRIDE = int(PATCH_SIZE*0.8)
 
 
-EMBED_SIZE = 512#512#1024#768#512#256#128#64
+EMBED_SIZE = 512
 N_HEADS = 16
 N_TRANS_LAYERS = 2
 MAX_SEQ_LEN = 20
